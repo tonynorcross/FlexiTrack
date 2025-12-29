@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlexiTrack</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; min-height: 100vh; }
+
+        /* Layout */
+        .layout { min-height: 100vh; }
+        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 800px; margin: 2rem auto; }
+        .container h1 { text-align: center; margin-bottom: 1.5rem; color: #333; }
+
+        /* Navbar */
+        .navbar { background: #007bff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .nav-brand { color: white; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
+        .nav-links { display: flex; gap: 1rem; }
+        .nav-links a { color: white; text-decoration: none; cursor: pointer; padding: 0.5rem 1rem; border-radius: 4px; }
+        .nav-links a:hover { background: rgba(255,255,255,0.2); }
+        .nav-links a.logout { background: rgba(255,255,255,0.1); }
+
+        /* Forms */
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500; }
+        input, select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+        input:focus, select:focus { outline: none; border-color: #007bff; }
+        button { padding: 0.75rem 1.5rem; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; margin-top: 0.5rem; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Links */
+        .links { text-align: center; margin-top: 1rem; }
+        .links a { color: #007bff; text-decoration: none; margin: 0 0.5rem; cursor: pointer; }
+        .links a:hover { text-decoration: underline; }
+
+        /* Messages */
+        .message { padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; text-align: center; }
+        .message.success { background: #d4edda; color: #155724; }
+        .message.error { background: #f8d7da; color: #721c24; }
+
+        /* Cards */
+        .card { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
+        .card h2 { margin-bottom: 1rem; color: #333; font-size: 1.25rem; }
+        .card p { margin-bottom: 0.5rem; color: #555; }
+
+        /* Dashboard */
+        .dashboard { display: grid; gap: 1rem; }
+        .button-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+
+        /* Tables */
+        .table-container { overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        .data-table th, .data-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
+        .data-table th { background: #f8f9fa; font-weight: 600; }
+        .data-table tr:hover { background: #f8f9fa; }
+        .info-table { width: 100%; }
+        .info-table td { padding: 0.5rem 0; }
+        .info-table td:first-child { width: 150px; }
+
+        /* Buttons */
+        .btn-small { padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0 0.25rem; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+
+        /* Actions bar */
+        .actions-bar { margin-bottom: 1rem; display: flex; gap: 0.5rem; }
+
+        /* Inline form */
+        .inline-form { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+
+        /* Profile */
+        .profile-details { display: grid; gap: 1rem; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { margin: 1rem; padding: 1rem; }
+            .navbar { flex-direction: column; gap: 1rem; }
+            .nav-links { flex-wrap: wrap; justify-content: center; }
+            .button-group { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+    <!-- React Router v5 (better UMD support) -->
+    <script src="https://unpkg.com/history@5/umd/history.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-router@5/umd/react-router.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-router-dom@5/umd/react-router-dom.min.js" crossorigin></script>
+
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- App Bundle -->
+    <script type="text/babel" data-presets="react" src="/js/app.bundle.jsx?v=20251229"></script>
+</body>
+</html>

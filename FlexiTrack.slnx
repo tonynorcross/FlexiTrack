@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="FlexiTrack.Api/FlexiTrack.Api.csproj" />
+  <Project Path="FlexiTrack.Mediator/FlexiTrack.Mediator.csproj" />
+</Solution>
