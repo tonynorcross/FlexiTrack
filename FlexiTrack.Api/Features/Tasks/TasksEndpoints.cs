@@ -35,10 +35,38 @@ public static class TasksEndpoints
             return Results.Ok(new { success = true, taskId = result.TaskId });
         })
         .WithName("CreateTaskLog");
+
+        group.MapPut("/{id:int}", async (int id, UpdateTaskRequest request, IMediator mediator, HttpContext context) =>
+        {
+            var cmd = new UpdateTaskLog.Command(
+                context.User,
+                id,
+                request.Date,
+                request.StartTime,
+                request.EndTime,
+                request.Description,
+                request.Client);
+            var result = await mediator.Send(cmd);
+
+            if (!result.Success)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            return Results.Ok(new { success = true });
+        })
+        .WithName("UpdateTaskLog");
     }
 }
 
 public record CreateTaskRequest(
+    string Date,
+    string StartTime,
+    string EndTime,
+    string Description,
+    string? Client = null);
+
+public record UpdateTaskRequest(
     string Date,
     string StartTime,
     string EndTime,

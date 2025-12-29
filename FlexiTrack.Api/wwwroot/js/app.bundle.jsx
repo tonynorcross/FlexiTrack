@@ -411,6 +411,15 @@ function DashboardPage() {
     const [logging, setLogging] = React.useState(false);
     const [taskLogs, setTaskLogs] = React.useState([]);
 
+    // Edit state
+    const [editingId, setEditingId] = React.useState(null);
+    const [editDate, setEditDate] = React.useState('');
+    const [editStartTime, setEditStartTime] = React.useState('');
+    const [editEndTime, setEditEndTime] = React.useState('');
+    const [editClient, setEditClient] = React.useState('');
+    const [editDescription, setEditDescription] = React.useState('');
+    const [saving, setSaving] = React.useState(false);
+
     const fetchTaskLogs = async () => {
         if (!user?.token) return;
         try {
@@ -464,6 +473,59 @@ function DashboardPage() {
             setMessage({ type: 'error', text: 'An error occurred' });
         } finally {
             setLogging(false);
+        }
+    };
+
+    const startEdit = (log) => {
+        setEditingId(log.id);
+        setEditDate(log.date);
+        setEditStartTime(log.startTime);
+        setEditEndTime(log.endTime);
+        setEditClient(log.client || '');
+        setEditDescription(log.description);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditDate('');
+        setEditStartTime('');
+        setEditEndTime('');
+        setEditClient('');
+        setEditDescription('');
+    };
+
+    const handleSaveEdit = async () => {
+        setMessage(null);
+        setSaving(true);
+
+        try {
+            const res = await fetch(`/api/tasks/${editingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    date: editDate,
+                    startTime: editStartTime,
+                    endTime: editEndTime,
+                    client: editClient || null,
+                    description: editDescription
+                })
+            });
+
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Task updated successfully' });
+                cancelEdit();
+                fetchTaskLogs();
+            } else {
+                const data = await res.json();
+                setMessage({ type: 'error', text: data.error || 'Failed to update task' });
+            }
+        } catch (err) {
+            setMessage({ type: 'error', text: 'An error occurred' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -557,16 +619,87 @@ function DashboardPage() {
                                     <th>Time</th>
                                     <th>Client</th>
                                     <th>Description</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {taskLogs.map((log) => (
-                                    <tr key={log.id}>
-                                        <td>{log.date}</td>
-                                        <td>{log.startTime} - {log.endTime}</td>
-                                        <td>{log.client || '-'}</td>
-                                        <td>{log.description}</td>
-                                    </tr>
+                                    editingId === log.id ? (
+                                        <tr key={log.id}>
+                                            <td>
+                                                <input
+                                                    type="date"
+                                                    value={editDate}
+                                                    onChange={(e) => setEditDate(e.target.value)}
+                                                    style={{ width: '130px' }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input
+                                                    type="time"
+                                                    value={editStartTime}
+                                                    onChange={(e) => setEditStartTime(e.target.value)}
+                                                    style={{ width: '90px' }}
+                                                />
+                                                {' - '}
+                                                <input
+                                                    type="time"
+                                                    value={editEndTime}
+                                                    onChange={(e) => setEditEndTime(e.target.value)}
+                                                    style={{ width: '90px' }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input
+                                                    type="text"
+                                                    value={editClient}
+                                                    onChange={(e) => setEditClient(e.target.value)}
+                                                    placeholder="Client"
+                                                    style={{ width: '100px' }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <input
+                                                    type="text"
+                                                    value={editDescription}
+                                                    onChange={(e) => setEditDescription(e.target.value)}
+                                                    placeholder="Description"
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </td>
+                                            <td>
+                                                <button
+                                                    className="btn-small"
+                                                    onClick={handleSaveEdit}
+                                                    disabled={saving}
+                                                >
+                                                    {saving ? 'Saving...' : 'Save'}
+                                                </button>
+                                                <button
+                                                    className="btn-small"
+                                                    onClick={cancelEdit}
+                                                    disabled={saving}
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        <tr key={log.id}>
+                                            <td>{log.date}</td>
+                                            <td>{log.startTime} - {log.endTime}</td>
+                                            <td>{log.client || '-'}</td>
+                                            <td>{log.description}</td>
+                                            <td>
+                                                <button
+                                                    className="btn-small"
+                                                    onClick={() => startEdit(log)}
+                                                >
+                                                    Edit
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )
                                 ))}
                             </tbody>
                         </table>
