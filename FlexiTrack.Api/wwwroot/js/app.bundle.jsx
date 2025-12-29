@@ -529,6 +529,30 @@ function DashboardPage() {
         }
     };
 
+    const handleDelete = async (id) => {
+        if (!confirm('Are you sure you want to delete this task log?')) return;
+
+        setMessage(null);
+        try {
+            const res = await fetch(`/api/tasks/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`
+                }
+            });
+
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Task deleted successfully' });
+                fetchTaskLogs();
+            } else {
+                const data = await res.json();
+                setMessage({ type: 'error', text: data.error || 'Failed to delete task' });
+            }
+        } catch (err) {
+            setMessage({ type: 'error', text: 'An error occurred' });
+        }
+    };
+
     if (!profile) {
         return (
             <Layout title="Dashboard" showNav onLogout={logout}>
@@ -696,6 +720,12 @@ function DashboardPage() {
                                                     onClick={() => startEdit(log)}
                                                 >
                                                     Edit
+                                                </button>
+                                                <button
+                                                    className="btn-small btn-danger"
+                                                    onClick={() => handleDelete(log.id)}
+                                                >
+                                                    Delete
                                                 </button>
                                             </td>
                                         </tr>

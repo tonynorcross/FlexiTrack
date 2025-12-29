@@ -56,6 +56,20 @@ public static class TasksEndpoints
             return Results.Ok(new { success = true });
         })
         .WithName("UpdateTaskLog");
+
+        group.MapDelete("/{id:int}", async (int id, IMediator mediator, HttpContext context) =>
+        {
+            var cmd = new DeleteTaskLog.Command(context.User, id);
+            var result = await mediator.Send(cmd);
+
+            if (!result.Success)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            return Results.Ok(new { success = true });
+        })
+        .WithName("DeleteTaskLog");
     }
 }
 
