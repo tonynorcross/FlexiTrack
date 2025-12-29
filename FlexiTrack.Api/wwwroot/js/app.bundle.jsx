@@ -420,6 +420,26 @@ function DashboardPage() {
     const [editDescription, setEditDescription] = React.useState('');
     const [saving, setSaving] = React.useState(false);
 
+    // Client autocomplete state
+    const [clients, setClients] = React.useState([]);
+    const [showClientSuggestions, setShowClientSuggestions] = React.useState(false);
+    const [filteredClients, setFilteredClients] = React.useState([]);
+
+    const fetchClients = async () => {
+        if (!user?.token) return;
+        try {
+            const res = await fetch('/api/tasks/clients', {
+                headers: { 'Authorization': `Bearer ${user.token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setClients(data.clients || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch clients:', err);
+        }
+    };
+
     const fetchTaskLogs = async () => {
         if (!user?.token) return;
         try {
@@ -437,7 +457,27 @@ function DashboardPage() {
 
     React.useEffect(() => {
         fetchTaskLogs();
+        fetchClients();
     }, [user?.token]);
+
+    const handleClientChange = (value) => {
+        setClient(value);
+        if (value.length > 0) {
+            const filtered = clients.filter(c =>
+                c.toLowerCase().includes(value.toLowerCase())
+            );
+            setFilteredClients(filtered);
+            setShowClientSuggestions(filtered.length > 0);
+        } else {
+            setFilteredClients(clients);
+            setShowClientSuggestions(clients.length > 0);
+        }
+    };
+
+    const selectClient = (selectedClient) => {
+        setClient(selectedClient);
+        setShowClientSuggestions(false);
+    };
 
     const handleLogTask = async (e) => {
         e.preventDefault();
@@ -465,6 +505,7 @@ function DashboardPage() {
                 setTaskDescription('');
                 setClient('');
                 fetchTaskLogs();
+                fetchClients();
             } else {
                 const data = await res.json();
                 setMessage({ type: 'error', text: data.error || 'Failed to log task' });
@@ -606,14 +647,53 @@ function DashboardPage() {
                                 required
                             />
                         </div>
-                        <div className="form-group">
+                        <div className="form-group" style={{ position: 'relative' }}>
                             <label>Client</label>
                             <input
                                 type="text"
                                 value={client}
-                                onChange={(e) => setClient(e.target.value)}
+                                onChange={(e) => handleClientChange(e.target.value)}
+                                onFocus={() => {
+                                    if (clients.length > 0) {
+                                        setFilteredClients(client ? clients.filter(c => c.toLowerCase().includes(client.toLowerCase())) : clients);
+                                        setShowClientSuggestions(true);
+                                    }
+                                }}
+                                onBlur={() => setTimeout(() => setShowClientSuggestions(false), 150)}
                                 placeholder="Client name (optional)"
+                                autoComplete="off"
                             />
+                            {showClientSuggestions && filteredClients.length > 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    background: 'white',
+                                    border: '1px solid #ddd',
+                                    borderRadius: '4px',
+                                    maxHeight: '150px',
+                                    overflowY: 'auto',
+                                    zIndex: 1000,
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                }}>
+                                    {filteredClients.map((c, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => selectClient(c)}
+                                            style={{
+                                                padding: '0.5rem 0.75rem',
+                                                cursor: 'pointer',
+                                                borderBottom: idx < filteredClients.length - 1 ? '1px solid #eee' : 'none'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.background = '#f0f0f0'}
+                                            onMouseLeave={(e) => e.target.style.background = 'white'}
+                                        >
+                                            {c}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div className="form-group">
                             <label>Description</label>

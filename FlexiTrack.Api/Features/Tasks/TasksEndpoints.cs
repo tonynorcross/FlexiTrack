@@ -16,6 +16,13 @@ public static class TasksEndpoints
         })
         .WithName("GetTaskLogs");
 
+        group.MapGet("/clients", async (IMediator mediator, HttpContext context, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(new GetClients.Query(context.User), ct);
+            return Results.Ok(result);
+        })
+        .WithName("GetClients");
+
         group.MapPost("/", async (CreateTaskRequest request, IMediator mediator, HttpContext context) =>
         {
             var cmd = new CreateTask.Command(
