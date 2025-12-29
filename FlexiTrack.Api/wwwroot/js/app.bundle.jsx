@@ -398,6 +398,24 @@ function ForgotPasswordPage() {
     );
 }
 
+function formatTimeNoSeconds(time) {
+    if (!time) return '';
+    return time.substring(0, 5);
+}
+
+function calculateDuration(startTime, endTime) {
+    if (!startTime || !endTime) return '';
+    const [startH, startM] = startTime.split(':').map(Number);
+    const [endH, endM] = endTime.split(':').map(Number);
+    let totalMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+    if (totalMinutes < 0) totalMinutes += 24 * 60;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes}m`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+}
+
 function DashboardPage() {
     const { user, profile, logout, isSystemAdmin, isCompanyAdmin } = useAuth();
     const history = ReactRouterDOM.useHistory();
@@ -424,6 +442,39 @@ function DashboardPage() {
     const [clients, setClients] = React.useState([]);
     const [showClientSuggestions, setShowClientSuggestions] = React.useState(false);
     const [filteredClients, setFilteredClients] = React.useState([]);
+
+    // Date filter state
+    const [dateFilter, setDateFilter] = React.useState('today');
+
+    const getFilteredTaskLogs = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+
+        if (dateFilter === 'today') {
+            return taskLogs.filter(log => log.date === todayStr);
+        }
+
+        if (dateFilter === 'week') {
+            const dayOfWeek = today.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + mondayOffset);
+            const mondayStr = monday.toISOString().split('T')[0];
+            return taskLogs.filter(log => log.date >= mondayStr && log.date <= todayStr);
+        }
+
+        if (dateFilter === '4weeks') {
+            const fourWeeksAgo = new Date(today);
+            fourWeeksAgo.setDate(today.getDate() - 28);
+            const fourWeeksStr = fourWeeksAgo.toISOString().split('T')[0];
+            return taskLogs.filter(log => log.date >= fourWeeksStr && log.date <= todayStr);
+        }
+
+        return taskLogs;
+    };
+
+    const filteredTaskLogs = getFilteredTaskLogs();
 
     const fetchClients = async () => {
         if (!user?.token) return;
@@ -712,22 +763,48 @@ function DashboardPage() {
                 </div>
 
                 <div className="card">
-                    <h2>Recent Task Logs</h2>
-                    {taskLogs.length === 0 ? (
-                        <p>No task logs yet. Start logging your work above!</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                        <h2 style={{ margin: 0 }}>Task Logs</h2>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                className={dateFilter === 'today' ? 'btn-small' : 'btn-small btn-outline'}
+                                onClick={() => setDateFilter('today')}
+                                style={dateFilter !== 'today' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                            >
+                                Today
+                            </button>
+                            <button
+                                className={dateFilter === 'week' ? 'btn-small' : 'btn-small btn-outline'}
+                                onClick={() => setDateFilter('week')}
+                                style={dateFilter !== 'week' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                            >
+                                This Week
+                            </button>
+                            <button
+                                className={dateFilter === '4weeks' ? 'btn-small' : 'btn-small btn-outline'}
+                                onClick={() => setDateFilter('4weeks')}
+                                style={dateFilter !== '4weeks' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                            >
+                                Last 4 Weeks
+                            </button>
+                        </div>
+                    </div>
+                    {filteredTaskLogs.length === 0 ? (
+                        <p>No task logs for this period.</p>
                     ) : (
                         <table className="data-table">
                             <thead>
                                 <tr>
                                     <th>Date</th>
                                     <th>Time</th>
+                                    <th>Duration</th>
                                     <th>Client</th>
                                     <th>Description</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {taskLogs.map((log) => (
+                                {filteredTaskLogs.map((log) => (
                                     editingId === log.id ? (
                                         <tr key={log.id}>
                                             <td>
@@ -753,6 +830,7 @@ function DashboardPage() {
                                                     style={{ width: '90px' }}
                                                 />
                                             </td>
+                                            <td>{calculateDuration(editStartTime, editEndTime)}</td>
                                             <td>
                                                 <input
                                                     type="text"
@@ -791,22 +869,25 @@ function DashboardPage() {
                                     ) : (
                                         <tr key={log.id}>
                                             <td>{log.date}</td>
-                                            <td>{log.startTime} - {log.endTime}</td>
+                                            <td>{formatTimeNoSeconds(log.startTime)} - {formatTimeNoSeconds(log.endTime)}</td>
+                                            <td>{calculateDuration(log.startTime, log.endTime)}</td>
                                             <td>{log.client || '-'}</td>
                                             <td>{log.description}</td>
                                             <td>
-                                                <button
-                                                    className="btn-small"
+                                                <span
                                                     onClick={() => startEdit(log)}
+                                                    title="Edit"
+                                                    style={{ cursor: 'pointer', marginRight: '0.5rem', fontSize: '1.1rem' }}
                                                 >
-                                                    Edit
-                                                </button>
-                                                <button
-                                                    className="btn-small btn-danger"
+                                                    ✏️
+                                                </span>
+                                                <span
                                                     onClick={() => handleDelete(log.id)}
+                                                    title="Delete"
+                                                    style={{ cursor: 'pointer', fontSize: '1.1rem' }}
                                                 >
-                                                    Delete
-                                                </button>
+                                                    🗑️
+                                                </span>
                                             </td>
                                         </tr>
                                     )
