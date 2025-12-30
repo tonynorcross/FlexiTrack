@@ -770,6 +770,41 @@ function DashboardPage() {
         }
     };
 
+    const exportToCsv = () => {
+        if (filteredTaskLogs.length === 0) {
+            setMessage({ type: 'error', text: 'No task logs to export' });
+            return;
+        }
+
+        const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
+        const rows = filteredTaskLogs.map(log => {
+            const duration = calculateDuration(log.startTime, log.endTime);
+            return [
+                log.date,
+                formatTimeNoSeconds(log.startTime),
+                formatTimeNoSeconds(log.endTime),
+                duration,
+                log.client || '',
+                `"${(log.description || '').replace(/"/g, '""')}"`
+            ];
+        });
+
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `task-logs-${taskDate}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
     if (!profile) {
         return (
             <Layout title="Dashboard" showNav onLogout={logout}>
@@ -944,6 +979,14 @@ function DashboardPage() {
                                     <option key={idx} value={c}>{c}</option>
                                 ))}
                             </select>
+                            <button
+                                className="btn-small"
+                                onClick={exportToCsv}
+                                style={{ background: '#28a745' }}
+                                title="Export to CSV"
+                            >
+                                Export CSV
+                            </button>
                         </div>
                     </div>
                     {filteredTaskLogs.length === 0 ? (
