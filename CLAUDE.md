@@ -24,6 +24,7 @@ FlexiTrack/
 │   │   ├── TaskItems/        # Task items CRUD endpoints
 │   │   ├── Users/            # User authentication endpoints
 │   │   └── Health/           # Health check endpoints
+│   ├── Migrations/           # EF Core database migrations
 │   ├── wwwroot/              # Static files
 │   │   ├── index.html        # Main HTML with embedded CSS
 │   │   └── js/app.bundle.jsx # React application (JSX, compiled by Babel in browser)
@@ -36,7 +37,7 @@ FlexiTrack/
 
 - **CQRS with Mediator:** Each feature uses Command/Query record types with Handlers
 - **Vertical Slice:** Features are organized by domain area, not by technical concern
-- **Code-First Database:** EF Core with `EnsureCreatedAsync()` (no migrations)
+- **Code-First Database:** EF Core with migrations
 
 ## Key Conventions
 
@@ -48,8 +49,8 @@ FlexiTrack/
 ## Database
 
 - Connection string in `appsettings.json` points to `localhost\SQLEXPRESS`
-- Database is auto-created on startup via `EnsureCreatedAsync()`
-- To reset database: drop it in SQL Server, restart the app
+- Uses EF Core migrations: `dotnet ef migrations add <Name>` and `dotnet ef database update`
+- To reset database: drop it in SQL Server, run migrations
 
 ## Frontend
 
@@ -68,11 +69,57 @@ App runs at http://localhost:5265
 
 Default admin: `admin@flexitrack.com` / `Admin123!`
 
+## Features
+
+### Task Logging
+- Log tasks with date, start time, end time, description, and optional client
+- Edit and delete task logs
+- Client autocomplete based on previously used clients
+- Time overlap validation (prevents overlapping entries)
+- Future date validation (prevents logging future dates)
+- Auto-set start time based on last task's end time or user default
+
+### Filtering & Export
+- Date filters: Today, This Week, Last Week, Last Month, This Month
+- Client filter: All Clients, No Client, or specific client
+- CSV export of filtered task logs
+
+### Dashboard Charts
+- Visual bar chart showing hours worked
+- Updates based on date and client filters
+- Chart views: daily for weeks/months
+- Horizontal goal line when weekly target is set
+- Current day/week highlighted in blue
+
+### User Settings
+- Weekly hours target (displayed as goal line on chart)
+- Default start time (used when no previous task exists)
+- Settings saved without page reload
+
 ## API Endpoints
 
+### Authentication
+- `POST /api/users/register` - Register new user
 - `POST /api/users/login` - Login
-- `POST /api/users/register` - Register
+- `POST /api/users/forgot-password` - Request password reset
+- `GET /api/users/profile` - Get user profile
+
+### User Settings
+- `PUT /api/users/settings` - Update user settings (weekly target, default start time)
+
+### Task Logs
 - `GET /api/tasks/logs` - Get user's task logs
 - `POST /api/tasks` - Create task log
-- `GET/POST/PUT/DELETE /api/taskitems` - Task items CRUD
-- `GET/POST/PUT/DELETE /api/companies` - Company management (admin)
+- `PUT /api/tasks/{id}` - Update task log
+- `DELETE /api/tasks/{id}` - Delete task log
+- `GET /api/tasks/clients` - Get unique client names
+
+### Admin
+- `GET/POST/PUT/DELETE /api/companies` - Company management
+- `GET /api/users` - List all users (system admin)
+- `PUT /api/users/{id}/system-admin` - Set system admin status
+
+## Git Workflow
+
+- Main development branch: `claude/development`
+- Remote: https://github.com/tonynorcross/FlexiTrack.git

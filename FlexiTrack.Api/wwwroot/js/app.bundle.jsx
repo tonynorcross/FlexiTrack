@@ -46,11 +46,18 @@ function AuthProvider({ children }) {
         setProfile(null);
     };
 
+    const refreshProfile = () => {
+        if (user?.token) {
+            fetchProfile(user.token);
+        }
+    };
+
     const value = {
         user,
         profile,
         login,
         logout,
+        refreshProfile,
         isAuthenticated: !!user,
         isSystemAdmin: profile?.isSystemAdmin || false,
         isCompanyAdmin: profile?.isCompanyAdmin || false,
@@ -476,11 +483,16 @@ function DashboardPage() {
             const lastMondayStr = lastMonday.toISOString().split('T')[0];
             const lastSundayStr = lastSunday.toISOString().split('T')[0];
             return taskLogs.filter(log => log.date >= lastMondayStr && log.date <= lastSundayStr);
-        } else if (dateFilter === '4weeks') {
-            const fourWeeksAgo = new Date(today);
-            fourWeeksAgo.setDate(today.getDate() - 28);
-            const fourWeeksStr = fourWeeksAgo.toISOString().split('T')[0];
-            return taskLogs.filter(log => log.date >= fourWeeksStr && log.date <= todayStr);
+        } else if (dateFilter === 'lastmonth') {
+            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            const firstOfLastMonthStr = firstOfLastMonth.toISOString().split('T')[0];
+            const lastOfLastMonthStr = lastOfLastMonth.toISOString().split('T')[0];
+            return taskLogs.filter(log => log.date >= firstOfLastMonthStr && log.date <= lastOfLastMonthStr);
+        } else if (dateFilter === 'month') {
+            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const firstOfMonthStr = firstOfMonth.toISOString().split('T')[0];
+            return taskLogs.filter(log => log.date >= firstOfMonthStr && log.date <= todayStr);
         }
 
         return taskLogs;
@@ -582,23 +594,20 @@ function DashboardPage() {
             const lastMonday = new Date(thisMonday);
             lastMonday.setDate(thisMonday.getDate() - 7);
             return { title: 'Last Week', data: getWeekData(lastMonday), type: 'daily' };
-        } else if (dateFilter === '4weeks') {
-            // Last 4 weeks - show weekly totals
-            const thisMonday = new Date(today);
-            thisMonday.setDate(today.getDate() + mondayOffset);
-            const weeklySummary = [];
+        } else if (dateFilter === 'lastmonth') {
+            // Last month - show daily totals for previous calendar month
+            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            const daysInLastMonth = lastOfLastMonth.getDate();
+            const lastMonthName = firstOfLastMonth.toLocaleString('default', { month: 'long' });
+            const monthlySummary = [];
 
-            for (let w = 3; w >= 0; w--) {
-                const weekMonday = new Date(thisMonday);
-                weekMonday.setDate(thisMonday.getDate() - (w * 7));
-                const weekSunday = new Date(weekMonday);
-                weekSunday.setDate(weekMonday.getDate() + 6);
-
-                const weekMondayStr = weekMonday.toISOString().split('T')[0];
-                const weekSundayStr = weekSunday.toISOString().split('T')[0];
+            for (let d = 1; d <= daysInLastMonth; d++) {
+                const date = new Date(firstOfLastMonth.getFullYear(), firstOfLastMonth.getMonth(), d);
+                const dateStr = date.toISOString().split('T')[0];
 
                 let totalMinutes = 0;
-                clientFilteredLogs.filter(log => log.date >= weekMondayStr && log.date <= weekSundayStr).forEach(log => {
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
                     if (log.startTime && log.endTime) {
                         const [startH, startM] = log.startTime.split(':').map(Number);
                         const [endH, endM] = log.endTime.split(':').map(Number);
@@ -608,19 +617,49 @@ function DashboardPage() {
                     }
                 });
 
-                const isCurrentWeek = weekMondayStr <= todayStr && weekSundayStr >= todayStr;
-                const weekLabel = `${weekMonday.getDate()}/${weekMonday.getMonth() + 1}`;
-
-                weeklySummary.push({
-                    day: weekLabel,
-                    date: weekMondayStr,
+                monthlySummary.push({
+                    day: d.toString(),
+                    date: dateStr,
                     minutes: totalMinutes,
                     hours: (totalMinutes / 60).toFixed(1),
-                    isToday: isCurrentWeek
+                    isToday: false
                 });
             }
 
-            return { title: 'Last 4 Weeks', data: weeklySummary, type: 'weekly' };
+            return { title: lastMonthName, data: monthlySummary, type: 'monthly' };
+        } else if (dateFilter === 'month') {
+            // This month - show daily totals
+            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const daysInMonth = lastOfMonth.getDate();
+            const monthName = today.toLocaleString('default', { month: 'long' });
+            const monthlySummary = [];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(today.getFullYear(), today.getMonth(), d);
+                const dateStr = date.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                monthlySummary.push({
+                    day: d.toString(),
+                    date: dateStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: dateStr === todayStr
+                });
+            }
+
+            return { title: monthName, data: monthlySummary, type: 'monthly' };
         }
 
         // Default to this week
@@ -1042,6 +1081,7 @@ function DashboardPage() {
                     {(() => {
                         const weeklyTarget = profile?.weeklyHoursTarget;
                         const targetHours = weeklyTarget ? (chartData.type === 'weekly' ? weeklyTarget : weeklyTarget / 7) : null;
+                        const isMonthlyChart = chartData.type === 'monthly';
                         const targetLinePosition = targetHours ? Math.min((targetHours / maxHours) * 120, 120) : null;
 
                         return (
@@ -1068,25 +1108,33 @@ function DashboardPage() {
                                         </span>
                                     </div>
                                 )}
-                                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '100%', gap: '0.5rem' }}>
-                                    {chartData.data.map((day, idx) => (
-                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '100%', gap: chartData.type === 'monthly' ? '1px' : '0.5rem' }}>
+                                    {chartData.data.map((day, idx) => {
+                                        const isMonthly = chartData.type === 'monthly';
+                                        const showLabel = !isMonthly || day.day === '1' || day.day === '15' || idx === chartData.data.length - 1 || day.isToday;
+                                        const showHours = !isMonthly;
+                                        return (
+                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, minWidth: isMonthly ? '0' : 'auto' }}>
                                             <div style={{
                                                 width: '100%',
-                                                maxWidth: chartData.type === 'weekly' ? '80px' : '50px',
+                                                maxWidth: chartData.type === 'weekly' ? '80px' : chartData.type === 'monthly' ? '20px' : '50px',
                                                 height: `${Math.max((day.minutes / 60 / maxHours) * 120, day.minutes > 0 ? 4 : 0)}px`,
                                                 background: day.isToday ? '#007bff' : '#28a745',
-                                                borderRadius: '4px 4px 0 0',
+                                                borderRadius: isMonthly ? '2px 2px 0 0' : '4px 4px 0 0',
                                                 transition: 'height 0.3s'
-                                            }} title={`${day.hours}h`}></div>
-                                            <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', fontWeight: day.isToday ? 'bold' : 'normal', color: day.isToday ? '#007bff' : '#666' }}>
+                                            }} title={`${day.day}: ${day.hours}h`}></div>
+                                            {showLabel && (
+                                            <div style={{ fontSize: isMonthly ? '0.65rem' : '0.75rem', marginTop: '0.25rem', fontWeight: day.isToday ? 'bold' : 'normal', color: day.isToday ? '#007bff' : '#666' }}>
                                                 {day.day}
                                             </div>
+                                            )}
+                                            {showHours && (
                                             <div style={{ fontSize: '0.7rem', color: '#999' }}>
                                                 {day.hours}h
                                             </div>
+                                            )}
                                         </div>
-                                    ))}
+                                    );})}
                                 </div>
                             </div>
                         );
@@ -1132,11 +1180,18 @@ function DashboardPage() {
                                 Last Week
                             </button>
                             <button
-                                className={dateFilter === '4weeks' ? 'btn-small' : 'btn-small btn-outline'}
-                                onClick={() => setDateFilter('4weeks')}
-                                style={dateFilter !== '4weeks' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                                className={dateFilter === 'lastmonth' ? 'btn-small' : 'btn-small btn-outline'}
+                                onClick={() => setDateFilter('lastmonth')}
+                                style={dateFilter !== 'lastmonth' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
                             >
-                                Last 4 Weeks
+                                Last Month
+                            </button>
+                            <button
+                                className={dateFilter === 'month' ? 'btn-small' : 'btn-small btn-outline'}
+                                onClick={() => setDateFilter('month')}
+                                style={dateFilter !== 'month' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                            >
+                                This Month
                             </button>
                             <select
                                 value={clientFilter}
@@ -1283,7 +1338,7 @@ function DashboardPage() {
 }
 
 function ProfilePage() {
-    const { user, profile, logout, isSystemAdmin } = useAuth();
+    const { user, profile, logout, isSystemAdmin, refreshProfile } = useAuth();
     const [weeklyTarget, setWeeklyTarget] = React.useState('');
     const [defaultStartTime, setDefaultStartTime] = React.useState('');
     const [saving, setSaving] = React.useState(false);
@@ -1325,9 +1380,8 @@ function ProfilePage() {
             });
 
             if (res.ok) {
-                setMessage({ type: 'success', text: 'Settings saved' });
-                // Refresh the page to update profile
-                window.location.reload();
+                setMessage({ type: 'success', text: 'Preferences updated successfully' });
+                refreshProfile();
             } else {
                 const data = await res.json();
                 setMessage({ type: 'error', text: data.error || 'Failed to save settings' });
