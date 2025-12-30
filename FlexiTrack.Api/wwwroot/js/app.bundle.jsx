@@ -651,10 +651,8 @@ function DashboardPage() {
         fetchTaskLogs();
     }, [user?.token]);
 
-    // Auto-set start time based on last task for selected date
+    // Auto-set start time based on last task for selected date or user's default
     React.useEffect(() => {
-        if (taskLogs.length === 0) return;
-
         const tasksOnDate = taskLogs
             .filter(log => log.date === taskDate)
             .sort((a, b) => a.endTime.localeCompare(b.endTime));
@@ -664,9 +662,10 @@ function DashboardPage() {
             const lastEndTime = lastTask.endTime.substring(0, 5);
             setStartTime(lastEndTime);
         } else {
-            setStartTime('06:00');
+            // Use user's default start time or fall back to 06:00
+            setStartTime(profile?.defaultStartTime || '06:00');
         }
-    }, [taskDate, taskLogs]);
+    }, [taskDate, taskLogs, profile?.defaultStartTime]);
 
     const handleClientChange = (value) => {
         setClient(value);
@@ -1040,28 +1039,65 @@ function DashboardPage() {
 
                 <div className="card">
                     <h2>{chartData.title}</h2>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '150px', gap: '0.5rem', padding: '0 0.5rem' }}>
-                        {chartData.data.map((day, idx) => (
-                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                <div style={{
-                                    width: '100%',
-                                    maxWidth: chartData.type === 'weekly' ? '80px' : '50px',
-                                    height: `${Math.max((day.minutes / 60 / maxHours) * 120, day.minutes > 0 ? 4 : 0)}px`,
-                                    background: day.isToday ? '#007bff' : '#28a745',
-                                    borderRadius: '4px 4px 0 0',
-                                    transition: 'height 0.3s'
-                                }} title={`${day.hours}h`}></div>
-                                <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', fontWeight: day.isToday ? 'bold' : 'normal', color: day.isToday ? '#007bff' : '#666' }}>
-                                    {day.day}
-                                </div>
-                                <div style={{ fontSize: '0.7rem', color: '#999' }}>
-                                    {day.hours}h
+                    {(() => {
+                        const weeklyTarget = profile?.weeklyHoursTarget;
+                        const targetHours = weeklyTarget ? (chartData.type === 'weekly' ? weeklyTarget : weeklyTarget / 7) : null;
+                        const targetLinePosition = targetHours ? Math.min((targetHours / maxHours) * 120, 120) : null;
+
+                        return (
+                            <div style={{ position: 'relative', height: '150px', padding: '0 0.5rem' }}>
+                                {targetLinePosition && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        bottom: `${targetLinePosition + 30}px`,
+                                        left: 0,
+                                        right: 0,
+                                        borderTop: '2px dashed #dc3545',
+                                        zIndex: 10
+                                    }}>
+                                        <span style={{
+                                            position: 'absolute',
+                                            right: 0,
+                                            top: '-18px',
+                                            fontSize: '0.7rem',
+                                            color: '#dc3545',
+                                            background: '#f8f9fa',
+                                            padding: '0 4px'
+                                        }}>
+                                            {targetHours.toFixed(1)}h target
+                                        </span>
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '100%', gap: '0.5rem' }}>
+                                    {chartData.data.map((day, idx) => (
+                                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                            <div style={{
+                                                width: '100%',
+                                                maxWidth: chartData.type === 'weekly' ? '80px' : '50px',
+                                                height: `${Math.max((day.minutes / 60 / maxHours) * 120, day.minutes > 0 ? 4 : 0)}px`,
+                                                background: day.isToday ? '#007bff' : '#28a745',
+                                                borderRadius: '4px 4px 0 0',
+                                                transition: 'height 0.3s'
+                                            }} title={`${day.hours}h`}></div>
+                                            <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', fontWeight: day.isToday ? 'bold' : 'normal', color: day.isToday ? '#007bff' : '#666' }}>
+                                                {day.day}
+                                            </div>
+                                            <div style={{ fontSize: '0.7rem', color: '#999' }}>
+                                                {day.hours}h
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        );
+                    })()}
                     <div style={{ textAlign: 'center', marginTop: '0.75rem', color: '#666', fontSize: '0.9rem' }}>
                         Total: <strong>{(chartData.data.reduce((sum, d) => sum + d.minutes, 0) / 60).toFixed(1)}h</strong>
+                        {profile?.weeklyHoursTarget && (
+                            <span style={{ marginLeft: '1rem', color: '#dc3545' }}>
+                                Target: <strong>{profile.weeklyHoursTarget}h/week</strong>
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -1247,7 +1283,61 @@ function DashboardPage() {
 }
 
 function ProfilePage() {
-    const { profile, logout, isSystemAdmin } = useAuth();
+    const { user, profile, logout, isSystemAdmin } = useAuth();
+    const [weeklyTarget, setWeeklyTarget] = React.useState('');
+    const [defaultStartTime, setDefaultStartTime] = React.useState('');
+    const [saving, setSaving] = React.useState(false);
+    const [message, setMessage] = React.useState(null);
+
+    React.useEffect(() => {
+        if (profile?.weeklyHoursTarget != null) {
+            setWeeklyTarget(profile.weeklyHoursTarget.toString());
+        }
+        if (profile?.defaultStartTime) {
+            setDefaultStartTime(profile.defaultStartTime);
+        }
+    }, [profile]);
+
+    const handleSaveSettings = async (e) => {
+        e.preventDefault();
+        setMessage(null);
+        setSaving(true);
+
+        try {
+            const targetValue = weeklyTarget.trim() === '' ? null : parseFloat(weeklyTarget);
+
+            if (targetValue !== null && (isNaN(targetValue) || targetValue < 0 || targetValue > 168)) {
+                setMessage({ type: 'error', text: 'Please enter a valid number between 0 and 168' });
+                setSaving(false);
+                return;
+            }
+
+            const res = await fetch('/api/users/settings', {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    weeklyHoursTarget: targetValue,
+                    defaultStartTime: defaultStartTime || null
+                })
+            });
+
+            if (res.ok) {
+                setMessage({ type: 'success', text: 'Settings saved' });
+                // Refresh the page to update profile
+                window.location.reload();
+            } else {
+                const data = await res.json();
+                setMessage({ type: 'error', text: data.error || 'Failed to save settings' });
+            }
+        } catch (err) {
+            setMessage({ type: 'error', text: 'An error occurred' });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     if (!profile) {
         return (
@@ -1260,6 +1350,38 @@ function ProfilePage() {
     return (
         <Layout title="Settings" showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
             <div className="profile-details">
+                <div className="card">
+                    <h2>Preferences</h2>
+                    <Message message={message} />
+                    <form onSubmit={handleSaveSettings}>
+                        <div className="form-group">
+                            <label>Weekly hours target</label>
+                            <input
+                                type="number"
+                                value={weeklyTarget}
+                                onChange={(e) => setWeeklyTarget(e.target.value)}
+                                placeholder="e.g. 40"
+                                min="0"
+                                max="168"
+                                step="0.5"
+                                style={{ maxWidth: '150px' }}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Default start time (when no previous task)</label>
+                            <input
+                                type="time"
+                                value={defaultStartTime}
+                                onChange={(e) => setDefaultStartTime(e.target.value)}
+                                style={{ maxWidth: '150px' }}
+                            />
+                        </div>
+                        <button type="submit" disabled={saving}>
+                            {saving ? 'Saving...' : 'Save Settings'}
+                        </button>
+                    </form>
+                </div>
+
                 <div className="card">
                     <h2>Account Information</h2>
                     <table className="info-table">

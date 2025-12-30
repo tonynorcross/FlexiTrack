@@ -16,4 +16,7 @@ public class ApplicationUser : IdentityUser
 
     public bool IsCompanyAdmin { get; set; }
     public bool IsSystemAdmin { get; set; }
+
+    public decimal? WeeklyHoursTarget { get; set; }
+    public TimeOnly? DefaultStartTime { get; set; }
 }

@@ -56,7 +56,17 @@ public static class UsersEndpoints
         })
         .RequireAuthorization(AuthorizationPolicies.SystemAdmin)
         .WithName("SetSystemAdmin");
+
+        // Update user settings
+        group.MapPut("/settings", async (UpdateUserSettingsRequest request, ClaimsPrincipal user, IMediator mediator, CancellationToken ct) =>
+        {
+            var result = await mediator.Send(new UpdateUserSettings.Command(user, request.WeeklyHoursTarget, request.DefaultStartTime), ct);
+            return result.Success ? Results.Ok(result) : Results.BadRequest(result);
+        })
+        .RequireAuthorization()
+        .WithName("UpdateUserSettings");
     }
 }
 
 public record SetSystemAdminRequest(bool IsAdmin);
+public record UpdateUserSettingsRequest(decimal? WeeklyHoursTarget, string? DefaultStartTime);

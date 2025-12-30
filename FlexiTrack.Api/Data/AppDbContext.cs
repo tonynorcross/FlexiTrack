@@ -23,6 +23,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser>
             entity.Property(u => u.FirstName).HasMaxLength(100).IsRequired();
             entity.Property(u => u.LastName).HasMaxLength(100).IsRequired();
             entity.Property(u => u.Created).HasDefaultValueSql("GETUTCDATE()");
+            entity.Property(u => u.WeeklyHoursTarget).HasPrecision(5, 2);
 
             entity.HasOne(u => u.Company)
                 .WithMany(c => c.Users)

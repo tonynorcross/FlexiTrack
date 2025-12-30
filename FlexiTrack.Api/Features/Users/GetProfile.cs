@@ -22,7 +22,9 @@ public static class GetProfile
         int? CompanyId,
         string? CompanyName,
         bool IsCompanyAdmin,
-        bool IsSystemAdmin);
+        bool IsSystemAdmin,
+        decimal? WeeklyHoursTarget,
+        string? DefaultStartTime);
 
     public class Handler : IRequestHandler<Query, Response?>
     {
@@ -57,7 +59,9 @@ public static class GetProfile
                 user.CompanyId,
                 user.Company?.Name,
                 user.IsCompanyAdmin,
-                user.IsSystemAdmin);
+                user.IsSystemAdmin,
+                user.WeeklyHoursTarget,
+                user.DefaultStartTime?.ToString("HH:mm"));
         }
     }
 }
