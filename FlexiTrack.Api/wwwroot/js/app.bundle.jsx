@@ -525,6 +525,113 @@ function DashboardPage() {
         return `${hours}h ${minutes}m`;
     };
 
+    const getChartData = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+        const dayOfWeek = today.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        // Apply client filter to task logs for chart
+        const clientFilteredLogs = clientFilter === 'all'
+            ? taskLogs
+            : clientFilter === 'none'
+                ? taskLogs.filter(log => !log.client)
+                : taskLogs.filter(log => log.client === clientFilter);
+
+        const getWeekData = (mondayDate) => {
+            const summary = [];
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(mondayDate);
+                date.setDate(mondayDate.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                summary.push({
+                    day: days[i],
+                    date: dateStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: dateStr === todayStr
+                });
+            }
+            return summary;
+        };
+
+        if (dateFilter === 'week' || dateFilter === 'today') {
+            // This week (Mon-Sun)
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            return { title: 'This Week', data: getWeekData(thisMonday), type: 'daily' };
+        } else if (dateFilter === 'lastweek') {
+            // Last week (Mon-Sun)
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            const lastMonday = new Date(thisMonday);
+            lastMonday.setDate(thisMonday.getDate() - 7);
+            return { title: 'Last Week', data: getWeekData(lastMonday), type: 'daily' };
+        } else if (dateFilter === '4weeks') {
+            // Last 4 weeks - show weekly totals
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            const weeklySummary = [];
+
+            for (let w = 3; w >= 0; w--) {
+                const weekMonday = new Date(thisMonday);
+                weekMonday.setDate(thisMonday.getDate() - (w * 7));
+                const weekSunday = new Date(weekMonday);
+                weekSunday.setDate(weekMonday.getDate() + 6);
+
+                const weekMondayStr = weekMonday.toISOString().split('T')[0];
+                const weekSundayStr = weekSunday.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date >= weekMondayStr && log.date <= weekSundayStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                const isCurrentWeek = weekMondayStr <= todayStr && weekSundayStr >= todayStr;
+                const weekLabel = `${weekMonday.getDate()}/${weekMonday.getMonth() + 1}`;
+
+                weeklySummary.push({
+                    day: weekLabel,
+                    date: weekMondayStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: isCurrentWeek
+                });
+            }
+
+            return { title: 'Last 4 Weeks', data: weeklySummary, type: 'weekly' };
+        }
+
+        // Default to this week
+        const thisMonday = new Date(today);
+        thisMonday.setDate(today.getDate() + mondayOffset);
+        return { title: 'This Week', data: getWeekData(thisMonday), type: 'daily' };
+    };
+
+    const chartData = getChartData();
+    const maxHours = Math.max(...chartData.data.map(d => d.minutes / 60), 8);
+
     const fetchTaskLogs = async () => {
         if (!user?.token) return;
         try {
@@ -929,6 +1036,33 @@ function DashboardPage() {
                             {logging ? 'Logging...' : 'Log Task'}
                         </button>
                     </form>
+                </div>
+
+                <div className="card">
+                    <h2>{chartData.title}</h2>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '150px', gap: '0.5rem', padding: '0 0.5rem' }}>
+                        {chartData.data.map((day, idx) => (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                <div style={{
+                                    width: '100%',
+                                    maxWidth: chartData.type === 'weekly' ? '80px' : '50px',
+                                    height: `${Math.max((day.minutes / 60 / maxHours) * 120, day.minutes > 0 ? 4 : 0)}px`,
+                                    background: day.isToday ? '#007bff' : '#28a745',
+                                    borderRadius: '4px 4px 0 0',
+                                    transition: 'height 0.3s'
+                                }} title={`${day.hours}h`}></div>
+                                <div style={{ fontSize: '0.75rem', marginTop: '0.25rem', fontWeight: day.isToday ? 'bold' : 'normal', color: day.isToday ? '#007bff' : '#666' }}>
+                                    {day.day}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: '#999' }}>
+                                    {day.hours}h
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ textAlign: 'center', marginTop: '0.75rem', color: '#666', fontSize: '0.9rem' }}>
+                        Total: <strong>{(chartData.data.reduce((sum, d) => sum + d.minutes, 0) / 60).toFixed(1)}h</strong>
+                    </div>
                 </div>
 
                 <div className="card">
