@@ -102,7 +102,7 @@ function Message({ message }) {
     );
 }
 
-function Layout({ children, title, showNav = false, onLogout, isAdmin = false }) {
+function Layout({ children, title, showNav = false, onLogout, isAdmin = false, userName = null }) {
     const history = ReactRouterDOM.useHistory();
 
     return (
@@ -113,10 +113,9 @@ function Layout({ children, title, showNav = false, onLogout, isAdmin = false })
                         FlexiTrack
                     </div>
                     <div className="nav-links">
-                        <a onClick={() => history.push('/dashboard')}>Dashboard</a>
-                        <a onClick={() => history.push('/profile')}>Profile</a>
                         {isAdmin && <a onClick={() => history.push('/admin/users')}>Users</a>}
                         {isAdmin && <a onClick={() => history.push('/admin/companies')}>Companies</a>}
+                        {userName && <a onClick={() => history.push('/profile')} title="Settings">{userName}</a>}
                         <a onClick={onLogout} className="logout">Logout</a>
                     </div>
                 </nav>
@@ -421,8 +420,8 @@ function DashboardPage() {
     const history = ReactRouterDOM.useHistory();
 
     const [taskDate, setTaskDate] = React.useState(new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = React.useState('09:00');
-    const [endTime, setEndTime] = React.useState('17:00');
+    const [startTime, setStartTime] = React.useState('06:00');
+    const [endTime, setEndTime] = React.useState('');
     const [client, setClient] = React.useState('');
     const [taskDescription, setTaskDescription] = React.useState('');
     const [message, setMessage] = React.useState(null);
@@ -439,32 +438,45 @@ function DashboardPage() {
     const [saving, setSaving] = React.useState(false);
 
     // Client autocomplete state
-    const [clients, setClients] = React.useState([]);
     const [showClientSuggestions, setShowClientSuggestions] = React.useState(false);
     const [filteredClients, setFilteredClients] = React.useState([]);
 
+    // Derive unique clients from task logs, sorted alphabetically
+    const clients = React.useMemo(() => {
+        return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
+    }, [taskLogs]);
+
     // Date filter state
     const [dateFilter, setDateFilter] = React.useState('today');
+    const [clientFilter, setClientFilter] = React.useState('all');
 
-    const getFilteredTaskLogs = () => {
+    const getDateFilteredTaskLogs = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayStr = today.toISOString().split('T')[0];
 
         if (dateFilter === 'today') {
             return taskLogs.filter(log => log.date === todayStr);
-        }
-
-        if (dateFilter === 'week') {
+        } else if (dateFilter === 'week') {
             const dayOfWeek = today.getDay();
             const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
             const monday = new Date(today);
             monday.setDate(today.getDate() + mondayOffset);
             const mondayStr = monday.toISOString().split('T')[0];
             return taskLogs.filter(log => log.date >= mondayStr && log.date <= todayStr);
-        }
-
-        if (dateFilter === '4weeks') {
+        } else if (dateFilter === 'lastweek') {
+            const dayOfWeek = today.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            const lastMonday = new Date(thisMonday);
+            lastMonday.setDate(thisMonday.getDate() - 7);
+            const lastSunday = new Date(thisMonday);
+            lastSunday.setDate(thisMonday.getDate() - 1);
+            const lastMondayStr = lastMonday.toISOString().split('T')[0];
+            const lastSundayStr = lastSunday.toISOString().split('T')[0];
+            return taskLogs.filter(log => log.date >= lastMondayStr && log.date <= lastSundayStr);
+        } else if (dateFilter === '4weeks') {
             const fourWeeksAgo = new Date(today);
             fourWeeksAgo.setDate(today.getDate() - 28);
             const fourWeeksStr = fourWeeksAgo.toISOString().split('T')[0];
@@ -474,21 +486,43 @@ function DashboardPage() {
         return taskLogs;
     };
 
+    const dateFilteredTaskLogs = getDateFilteredTaskLogs();
+
+    // Get distinct clients from date-filtered logs, sorted alphabetically
+    const visibleClients = [...new Set(dateFilteredTaskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
+
+    const getFilteredTaskLogs = () => {
+        let filtered = dateFilteredTaskLogs;
+
+        // Client filtering
+        if (clientFilter === 'none') {
+            filtered = filtered.filter(log => !log.client);
+        } else if (clientFilter !== 'all') {
+            filtered = filtered.filter(log => log.client === clientFilter);
+        }
+
+        return filtered;
+    };
+
     const filteredTaskLogs = getFilteredTaskLogs();
 
-    const fetchClients = async () => {
-        if (!user?.token) return;
-        try {
-            const res = await fetch('/api/tasks/clients', {
-                headers: { 'Authorization': `Bearer ${user.token}` }
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setClients(data.clients || []);
+    const getTotalDuration = () => {
+        let totalMinutes = 0;
+        filteredTaskLogs.forEach(log => {
+            if (log.startTime && log.endTime) {
+                const [startH, startM] = log.startTime.split(':').map(Number);
+                const [endH, endM] = log.endTime.split(':').map(Number);
+                let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                if (mins < 0) mins += 24 * 60;
+                totalMinutes += mins;
             }
-        } catch (err) {
-            console.error('Failed to fetch clients:', err);
-        }
+        });
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (totalMinutes === 0) return '0h';
+        if (hours === 0) return `${minutes}m`;
+        if (minutes === 0) return `${hours}h`;
+        return `${hours}h ${minutes}m`;
     };
 
     const fetchTaskLogs = async () => {
@@ -508,15 +542,40 @@ function DashboardPage() {
 
     React.useEffect(() => {
         fetchTaskLogs();
-        fetchClients();
     }, [user?.token]);
+
+    // Auto-set start time based on last task for selected date
+    React.useEffect(() => {
+        if (taskLogs.length === 0) return;
+
+        const tasksOnDate = taskLogs
+            .filter(log => log.date === taskDate)
+            .sort((a, b) => a.endTime.localeCompare(b.endTime));
+
+        if (tasksOnDate.length > 0) {
+            const lastTask = tasksOnDate[tasksOnDate.length - 1];
+            const lastEndTime = lastTask.endTime.substring(0, 5);
+            setStartTime(lastEndTime);
+        } else {
+            setStartTime('06:00');
+        }
+    }, [taskDate, taskLogs]);
 
     const handleClientChange = (value) => {
         setClient(value);
         if (value.length > 0) {
+            const lowerValue = value.toLowerCase();
             const filtered = clients.filter(c =>
-                c.toLowerCase().includes(value.toLowerCase())
+                c.toLowerCase().includes(lowerValue)
             );
+            // Sort to show "starts with" matches first
+            filtered.sort((a, b) => {
+                const aStarts = a.toLowerCase().startsWith(lowerValue);
+                const bStarts = b.toLowerCase().startsWith(lowerValue);
+                if (aStarts && !bStarts) return -1;
+                if (!aStarts && bStarts) return 1;
+                return a.localeCompare(b);
+            });
             setFilteredClients(filtered);
             setShowClientSuggestions(filtered.length > 0);
         } else {
@@ -530,9 +589,55 @@ function DashboardPage() {
         setShowClientSuggestions(false);
     };
 
+    const timeToMinutes = (time) => {
+        const [h, m] = time.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    const checkTimeOverlap = (date, start, end, excludeId = null) => {
+        const startMins = timeToMinutes(start);
+        const endMins = timeToMinutes(end);
+
+        const logsOnDate = taskLogs.filter(log =>
+            log.date === date && (excludeId === null || log.id !== excludeId)
+        );
+
+        for (const log of logsOnDate) {
+            const logStart = timeToMinutes(log.startTime);
+            const logEnd = timeToMinutes(log.endTime);
+
+            // Check for overlap: new range overlaps if it starts before existing ends AND ends after existing starts
+            if (startMins < logEnd && endMins > logStart) {
+                return `Time overlaps with existing task: ${log.startTime.substring(0,5)} - ${log.endTime.substring(0,5)}`;
+            }
+        }
+        return null;
+    };
+
     const handleLogTask = async (e) => {
         e.preventDefault();
         setMessage(null);
+
+        // Validate date is not in the future
+        const today = new Date().toISOString().split('T')[0];
+        if (taskDate > today) {
+            setMessage({ type: 'error', text: 'Date cannot be in the future' });
+            return;
+        }
+
+        // Validate end time is after start time
+        if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
+            setMessage({ type: 'error', text: 'End time must be after start time' });
+            return;
+        }
+
+        // Check for overlapping times
+        const overlapError = checkTimeOverlap(taskDate, startTime, endTime);
+        if (overlapError) {
+            setMessage({ type: 'error', text: overlapError });
+            return;
+        }
+
         setLogging(true);
 
         try {
@@ -556,7 +661,6 @@ function DashboardPage() {
                 setTaskDescription('');
                 setClient('');
                 fetchTaskLogs();
-                fetchClients();
             } else {
                 const data = await res.json();
                 setMessage({ type: 'error', text: data.error || 'Failed to log task' });
@@ -588,6 +692,27 @@ function DashboardPage() {
 
     const handleSaveEdit = async () => {
         setMessage(null);
+
+        // Validate date is not in the future
+        const today = new Date().toISOString().split('T')[0];
+        if (editDate > today) {
+            setMessage({ type: 'error', text: 'Date cannot be in the future' });
+            return;
+        }
+
+        // Validate end time is after start time
+        if (timeToMinutes(editEndTime) <= timeToMinutes(editStartTime)) {
+            setMessage({ type: 'error', text: 'End time must be after start time' });
+            return;
+        }
+
+        // Check for overlapping times (exclude current task being edited)
+        const overlapError = checkTimeOverlap(editDate, editStartTime, editEndTime, editingId);
+        if (overlapError) {
+            setMessage({ type: 'error', text: overlapError });
+            return;
+        }
+
         setSaving(true);
 
         try {
@@ -658,14 +783,9 @@ function DashboardPage() {
             showNav
             onLogout={logout}
             isAdmin={isSystemAdmin}
+            userName={profile.firstName}
         >
             <div className="dashboard">
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h2>Welcome, {profile.firstName}!</h2>
-                        <button onClick={() => history.push('/profile')}>View Profile</button>
-                    </div>
-                </div>
 
                 <div className="card">
                     <h2>Log Task</h2>
@@ -677,6 +797,7 @@ function DashboardPage() {
                                 type="date"
                                 value={taskDate}
                                 onChange={(e) => setTaskDate(e.target.value)}
+                                max={new Date().toISOString().split('T')[0]}
                                 required
                             />
                         </div>
@@ -706,7 +827,20 @@ function DashboardPage() {
                                 onChange={(e) => handleClientChange(e.target.value)}
                                 onFocus={() => {
                                     if (clients.length > 0) {
-                                        setFilteredClients(client ? clients.filter(c => c.toLowerCase().includes(client.toLowerCase())) : clients);
+                                        if (client) {
+                                            const lowerValue = client.toLowerCase();
+                                            const filtered = clients.filter(c => c.toLowerCase().includes(lowerValue));
+                                            filtered.sort((a, b) => {
+                                                const aStarts = a.toLowerCase().startsWith(lowerValue);
+                                                const bStarts = b.toLowerCase().startsWith(lowerValue);
+                                                if (aStarts && !bStarts) return -1;
+                                                if (!aStarts && bStarts) return 1;
+                                                return a.localeCompare(b);
+                                            });
+                                            setFilteredClients(filtered);
+                                        } else {
+                                            setFilteredClients(clients);
+                                        }
                                         setShowClientSuggestions(true);
                                     }
                                 }}
@@ -763,8 +897,13 @@ function DashboardPage() {
                 </div>
 
                 <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h2 style={{ margin: 0 }}>Task Logs</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <h2 style={{ margin: 0 }}>Task Logs</h2>
+                            <span style={{ color: '#666', fontSize: '0.95rem' }}>
+                                Total: <strong>{getTotalDuration()}</strong>
+                            </span>
+                        </div>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button
                                 className={dateFilter === 'today' ? 'btn-small' : 'btn-small btn-outline'}
@@ -781,12 +920,30 @@ function DashboardPage() {
                                 This Week
                             </button>
                             <button
+                                className={dateFilter === 'lastweek' ? 'btn-small' : 'btn-small btn-outline'}
+                                onClick={() => setDateFilter('lastweek')}
+                                style={dateFilter !== 'lastweek' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                            >
+                                Last Week
+                            </button>
+                            <button
                                 className={dateFilter === '4weeks' ? 'btn-small' : 'btn-small btn-outline'}
                                 onClick={() => setDateFilter('4weeks')}
                                 style={dateFilter !== '4weeks' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
                             >
                                 Last 4 Weeks
                             </button>
+                            <select
+                                value={clientFilter}
+                                onChange={(e) => setClientFilter(e.target.value)}
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #007bff', color: '#007bff', background: 'white', cursor: 'pointer' }}
+                            >
+                                <option value="all">All Clients</option>
+                                <option value="none">No Client</option>
+                                {visibleClients.map((c, idx) => (
+                                    <option key={idx} value={c}>{c}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                     {filteredTaskLogs.length === 0 ? (
@@ -812,6 +969,7 @@ function DashboardPage() {
                                                     type="date"
                                                     value={editDate}
                                                     onChange={(e) => setEditDate(e.target.value)}
+                                                    max={new Date().toISOString().split('T')[0]}
                                                     style={{ width: '130px' }}
                                                 />
                                             </td>
@@ -916,14 +1074,14 @@ function ProfilePage() {
 
     if (!profile) {
         return (
-            <Layout title="Profile" showNav onLogout={logout}>
+            <Layout title="Settings" showNav onLogout={logout}>
                 <p>Loading...</p>
             </Layout>
         );
     }
 
     return (
-        <Layout title="Profile" showNav onLogout={logout} isAdmin={isSystemAdmin}>
+        <Layout title="Settings" showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
             <div className="profile-details">
                 <div className="card">
                     <h2>Account Information</h2>
@@ -991,7 +1149,7 @@ function UsersPage() {
     const [assigningUser, setAssigningUser] = React.useState(null);
     const [selectedCompanyId, setSelectedCompanyId] = React.useState('');
 
-    const { user, logout, isSystemAdmin } = useAuth();
+    const { user, profile, logout, isSystemAdmin } = useAuth();
     const history = ReactRouterDOM.useHistory();
 
     React.useEffect(() => {
@@ -1099,7 +1257,7 @@ function UsersPage() {
     };
 
     return (
-        <Layout title="Manage Users" showNav onLogout={logout} isAdmin={isSystemAdmin}>
+        <Layout title="Manage Users" showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile?.firstName}>
             <Message message={message} />
             {loading ? (
                 <p>Loading users...</p>
@@ -1191,7 +1349,7 @@ function CompaniesPage() {
     const [showForm, setShowForm] = React.useState(false);
     const [newCompanyName, setNewCompanyName] = React.useState('');
 
-    const { user, logout, isSystemAdmin } = useAuth();
+    const { user, profile, logout, isSystemAdmin } = useAuth();
     const history = ReactRouterDOM.useHistory();
 
     React.useEffect(() => {
@@ -1261,7 +1419,7 @@ function CompaniesPage() {
     };
 
     return (
-        <Layout title="Manage Companies" showNav onLogout={logout} isAdmin={isSystemAdmin}>
+        <Layout title="Manage Companies" showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile?.firstName}>
             <Message message={message} />
 
             <div className="actions-bar">
@@ -1335,7 +1493,7 @@ function CompanyDetailPage() {
     const [showAddUser, setShowAddUser] = React.useState(false);
     const [selectedUserId, setSelectedUserId] = React.useState('');
 
-    const { user, logout, isSystemAdmin } = useAuth();
+    const { user, profile, logout, isSystemAdmin } = useAuth();
     const history = ReactRouterDOM.useHistory();
     const { id } = ReactRouterDOM.useParams();
 
@@ -1447,7 +1605,7 @@ function CompanyDetailPage() {
 
     if (loading) {
         return (
-            <Layout title="Company Details" showNav onLogout={logout} isAdmin={isSystemAdmin}>
+            <Layout title="Company Details" showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile?.firstName}>
                 <p>Loading...</p>
             </Layout>
         );
@@ -1455,7 +1613,7 @@ function CompanyDetailPage() {
 
     if (!company) {
         return (
-            <Layout title="Company Not Found" showNav onLogout={logout} isAdmin={isSystemAdmin}>
+            <Layout title="Company Not Found" showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile?.firstName}>
                 <p>Company not found.</p>
                 <button onClick={() => history.push('/admin/companies')}>Back to Companies</button>
             </Layout>
@@ -1463,7 +1621,7 @@ function CompanyDetailPage() {
     }
 
     return (
-        <Layout title={company.name} showNav onLogout={logout} isAdmin={isSystemAdmin}>
+        <Layout title={company.name} showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile?.firstName}>
             <Message message={message} />
 
             <div className="actions-bar">

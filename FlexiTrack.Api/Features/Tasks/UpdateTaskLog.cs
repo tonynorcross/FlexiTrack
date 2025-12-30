@@ -48,6 +48,11 @@ public static class UpdateTaskLog
                 return new Response(false, Error: "Invalid date format");
             }
 
+            if (date > DateOnly.FromDateTime(DateTime.Today))
+            {
+                return new Response(false, Error: "Date cannot be in the future");
+            }
+
             if (!TimeOnly.TryParse(request.StartTime, out var startTime))
             {
                 return new Response(false, Error: "Invalid start time format");
@@ -61,6 +66,18 @@ public static class UpdateTaskLog
             if (endTime <= startTime)
             {
                 return new Response(false, Error: "End time must be after start time");
+            }
+
+            // Check for overlapping task logs on the same date (excluding current task)
+            var overlappingTask = await _db.TaskLogs
+                .Where(t => t.UserId == userId && t.Date == date && t.Id != request.Id)
+                .Where(t => startTime < t.EndTime && endTime > t.StartTime)
+                .Select(t => new { t.StartTime, t.EndTime })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (overlappingTask != null)
+            {
+                return new Response(false, Error: $"Time overlaps with existing task: {overlappingTask.StartTime:HH:mm} - {overlappingTask.EndTime:HH:mm}");
             }
 
             taskLog.Date = date;

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using FlexiTrack.Api.Data;
 using FlexiTrack.Api.Data.Entities;
 using FlexiTrack.Mediator;
+using Microsoft.EntityFrameworkCore;
 
 namespace FlexiTrack.Api.Features.Tasks;
 
@@ -39,6 +40,11 @@ public static class CreateTask
                 return new Response(false, Error: "Invalid date format");
             }
 
+            if (date > DateOnly.FromDateTime(DateTime.Today))
+            {
+                return new Response(false, Error: "Date cannot be in the future");
+            }
+
             if (!TimeOnly.TryParse(request.StartTime, out var startTime))
             {
                 return new Response(false, Error: "Invalid start time format");
@@ -52,6 +58,18 @@ public static class CreateTask
             if (endTime <= startTime)
             {
                 return new Response(false, Error: "End time must be after start time");
+            }
+
+            // Check for overlapping task logs on the same date
+            var overlappingTask = await _db.TaskLogs
+                .Where(t => t.UserId == userId && t.Date == date)
+                .Where(t => startTime < t.EndTime && endTime > t.StartTime)
+                .Select(t => new { t.StartTime, t.EndTime })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (overlappingTask != null)
+            {
+                return new Response(false, Error: $"Time overlaps with existing task: {overlappingTask.StartTime:HH:mm} - {overlappingTask.EndTime:HH:mm}");
             }
 
             var taskLog = new TaskLog
