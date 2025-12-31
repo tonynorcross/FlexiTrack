@@ -47,6 +47,11 @@
                           DisplayMemberPath="Display"
                           Margin="0,0,0,12" />
 
+                <CheckBox Content="Consolidate"
+                          IsChecked="{Binding Consolidate}"
+                          Foreground="{StaticResource TextPrimaryBrush}"
+                          Margin="0,0,0,12" />
+
                 <Button Content="Export CSV"
                         Command="{Binding ExportPeriodCommand}"
                         Style="{StaticResource PrimaryButton}"

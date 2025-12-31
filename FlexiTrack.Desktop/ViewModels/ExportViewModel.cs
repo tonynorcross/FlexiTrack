@@ -30,6 +30,9 @@ public partial class ExportViewModel : ViewModelBase
     private MonthOption? _selectedMonth;
 
     [ObservableProperty]
+    private bool _consolidate;
+
+    [ObservableProperty]
     private string _statusMessage = "";
 
     public ObservableCollection<MonthOption> AvailableMonths { get; } = [];
@@ -102,13 +105,11 @@ public partial class ExportViewModel : ViewModelBase
             var endDate = lastOfMonth > today ? today : lastOfMonth;
 
             var tasks = _allTasks.Where(t => t.Date >= firstOfMonth && t.Date <= endDate);
-            var periodName = $"{SelectedMonth.Year}-{SelectedMonth.Month:D2}";
 
             // Apply client filter
             if (SelectedClient != "all")
             {
                 tasks = tasks.Where(t => t.Client == SelectedClient);
-                periodName += $"_{SelectedClient}";
             }
 
             var taskList = tasks.OrderBy(t => t.Date).ThenBy(t => t.StartTime).ToList();
@@ -121,12 +122,18 @@ public partial class ExportViewModel : ViewModelBase
                 return;
             }
 
+            // Generate filename: ID-YYYYMMDD.csv or ID-YYYYMMDD-detail.csv
+            var clientId = SelectedClient != "all" ? SelectedClient : "All";
+            var dateStr = $"{endDate:yyyyMMdd}";
+            var detailSuffix = Consolidate ? "" : "-detail";
+            var fileName = $"{clientId}-{dateStr}{detailSuffix}.csv";
+
             WeakReferenceMessenger.Default.Send(new ShowingDialogMessage(true));
             try
             {
                 var dialog = new SaveFileDialog
                 {
-                    FileName = $"FlexiTrack_{periodName}.csv",
+                    FileName = fileName,
                     DefaultExt = ".csv",
                     Filter = "CSV files (*.csv)|*.csv"
                 };
@@ -135,9 +142,10 @@ public partial class ExportViewModel : ViewModelBase
                 if (dialog.ShowDialog() == true)
                 {
                     Log($"Saving to {dialog.FileName}");
-                    var csv = GenerateCsv(taskList);
+                    var csv = Consolidate ? GenerateConsolidatedCsv(taskList) : GenerateDetailCsv(taskList);
                     File.WriteAllText(dialog.FileName, csv);
-                    StatusMessage = $"Exported {taskList.Count} tasks to {Path.GetFileName(dialog.FileName)}";
+                    var exportType = Consolidate ? "consolidated" : "detailed";
+                    StatusMessage = $"Exported {taskList.Count} tasks ({exportType}) to {Path.GetFileName(dialog.FileName)}";
                     WeakReferenceMessenger.Default.Send(new ExportStatusMessage(StatusMessage, true));
                     Log("CSV export completed");
                 }
@@ -208,7 +216,7 @@ public partial class ExportViewModel : ViewModelBase
                     foreach (var group in groupedTasks)
                     {
                         var monthTasks = group.OrderBy(t => t.Date).ThenBy(t => t.StartTime).ToList();
-                        var csv = GenerateCsv(monthTasks);
+                        var csv = GenerateDetailCsv(monthTasks);
                         var fileName = $"{group.Key.Year}-{group.Key.Month:D2}{clientSuffix}.csv";
 
                         var entry = archive.CreateEntry(fileName);
@@ -236,7 +244,7 @@ public partial class ExportViewModel : ViewModelBase
         }
     }
 
-    private string GenerateCsv(IEnumerable<TaskLogDto> tasks)
+    private string GenerateDetailCsv(IEnumerable<TaskLogDto> tasks)
     {
         var sb = new StringBuilder();
         sb.AppendLine("Date,Start Time,End Time,Duration,Description,Client");
@@ -250,6 +258,34 @@ public partial class ExportViewModel : ViewModelBase
             var client = EscapeCsvField(task.Client ?? "");
 
             sb.AppendLine($"{task.Date:yyyy-MM-dd},{task.StartTime:HH:mm},{task.EndTime:HH:mm},{durationStr},{description},{client}");
+        }
+
+        return sb.ToString();
+    }
+
+    private string GenerateConsolidatedCsv(IEnumerable<TaskLogDto> tasks)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("Date,Hours,Tasks");
+
+        // Group tasks by date
+        var groupedByDate = tasks
+            .GroupBy(t => t.Date)
+            .OrderBy(g => g.Key);
+
+        foreach (var group in groupedByDate)
+        {
+            // Calculate total hours for the date
+            var totalMinutes = group.Sum(t => (t.EndTime.ToTimeSpan() - t.StartTime.ToTimeSpan()).TotalMinutes);
+            var hours = totalMinutes / 60.0;
+
+            // Combine all task descriptions
+            var taskDescriptions = string.Join(", ", group.Select(t => t.Description));
+
+            // Format date as "01 Jan 26"
+            var dateStr = group.Key.ToString("dd MMM yy");
+
+            sb.AppendLine($"{dateStr},{hours:F2},{EscapeCsvField(taskDescriptions)}");
         }
 
         return sb.ToString();
