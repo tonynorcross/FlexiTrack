@@ -15,16 +15,18 @@ public partial class ExportView : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         ClientCombo.SelectionChanged += ClientCombo_SelectionChanged;
-        ClientCombo.DropDownOpened += ClientCombo_DropDownOpened;
-        ClientCombo.DropDownClosed += ClientCombo_DropDownClosed;
+        ClientCombo.DropDownOpened += Combo_DropDownOpened;
+        ClientCombo.DropDownClosed += Combo_DropDownClosed;
+        MonthCombo.DropDownOpened += Combo_DropDownOpened;
+        MonthCombo.DropDownClosed += Combo_DropDownClosed;
     }
 
-    private void ClientCombo_DropDownOpened(object? sender, EventArgs e)
+    private void Combo_DropDownOpened(object? sender, EventArgs e)
     {
         WeakReferenceMessenger.Default.Send(new ShowingDialogMessage(true));
     }
 
-    private void ClientCombo_DropDownClosed(object? sender, EventArgs e)
+    private void Combo_DropDownClosed(object? sender, EventArgs e)
     {
         WeakReferenceMessenger.Default.Send(new ShowingDialogMessage(false));
     }

@@ -13,6 +13,8 @@ using static FlexiTrack.Desktop.Services.LogService;
 
 namespace FlexiTrack.Desktop.ViewModels;
 
+public record MonthOption(int Year, int Month, string Display);
+
 public partial class ExportViewModel : ViewModelBase
 {
     private readonly IApiClient _apiClient;
@@ -25,17 +27,26 @@ public partial class ExportViewModel : ViewModelBase
     private string _selectedClient = "all";
 
     [ObservableProperty]
-    private string _selectedPeriod = "month";
+    private MonthOption? _selectedMonth;
 
     [ObservableProperty]
     private string _statusMessage = "";
 
-    public string[] Periods { get; } = ["month", "lastmonth"];
-    public string[] PeriodLabels { get; } = ["This Month", "Last Month"];
+    public ObservableCollection<MonthOption> AvailableMonths { get; } = [];
 
     public ExportViewModel(IApiClient apiClient)
     {
         _apiClient = apiClient;
+
+        // Populate last 12 months in reverse order (current month first)
+        var today = DateTime.Today;
+        for (int i = 0; i < 12; i++)
+        {
+            var date = today.AddMonths(-i);
+            var display = date.ToString("MMM, yyyy");
+            AvailableMonths.Add(new MonthOption(date.Year, date.Month, display));
+        }
+        SelectedMonth = AvailableMonths.FirstOrDefault();
 
         WeakReferenceMessenger.Default.Register<RefreshTasksMessage>(this, async (r, m) =>
         {
@@ -77,23 +88,21 @@ public partial class ExportViewModel : ViewModelBase
         Log("ExportPeriod called");
         try
         {
-            var today = DateOnly.FromDateTime(DateTime.Today);
-            IEnumerable<TaskLogDto> tasks;
-            string periodName;
+            if (SelectedMonth == null)
+            {
+                StatusMessage = "Please select a month to export.";
+                return;
+            }
 
-            if (SelectedPeriod == "month")
-            {
-                var firstOfMonth = new DateOnly(today.Year, today.Month, 1);
-                tasks = _allTasks.Where(t => t.Date >= firstOfMonth && t.Date <= today);
-                periodName = today.ToString("yyyy-MM");
-            }
-            else
-            {
-                var firstOfLastMonth = new DateOnly(today.Year, today.Month, 1).AddMonths(-1);
-                var lastOfLastMonth = new DateOnly(today.Year, today.Month, 1).AddDays(-1);
-                tasks = _allTasks.Where(t => t.Date >= firstOfLastMonth && t.Date <= lastOfLastMonth);
-                periodName = firstOfLastMonth.ToString("yyyy-MM");
-            }
+            var firstOfMonth = new DateOnly(SelectedMonth.Year, SelectedMonth.Month, 1);
+            var lastOfMonth = firstOfMonth.AddMonths(1).AddDays(-1);
+            var today = DateOnly.FromDateTime(DateTime.Today);
+
+            // If exporting current month, only include up to today
+            var endDate = lastOfMonth > today ? today : lastOfMonth;
+
+            var tasks = _allTasks.Where(t => t.Date >= firstOfMonth && t.Date <= endDate);
+            var periodName = $"{SelectedMonth.Year}-{SelectedMonth.Month:D2}";
 
             // Apply client filter
             if (SelectedClient != "all")
