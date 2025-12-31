@@ -11,6 +11,7 @@ public partial class TaskLogViewModel : ViewModelBase
 {
     private readonly IApiClient _apiClient;
     private readonly IAuthService _authService;
+    private IEnumerable<TaskLogDto> _allTasks = [];
 
     [ObservableProperty]
     private DateTime _date = DateTime.Today;
@@ -57,17 +58,31 @@ public partial class TaskLogViewModel : ViewModelBase
     public async Task InitializeAsync()
     {
         Clients = await _apiClient.GetClientsAsync();
+        _allTasks = await _apiClient.GetTaskLogsAsync();
 
-        // Get last task's end time or use user's default for start time
-        var tasks = await _apiClient.GetTaskLogsAsync();
-        var todayTasks = tasks
-            .Where(t => t.Date == DateOnly.FromDateTime(DateTime.Today))
+        // Set start time based on selected date
+        UpdateStartTimeForDate(DateOnly.FromDateTime(Date));
+
+        // Do not prepopulate end time
+        EndTime = "";
+    }
+
+    partial void OnDateChanged(DateTime value)
+    {
+        UpdateStartTimeForDate(DateOnly.FromDateTime(value));
+    }
+
+    private void UpdateStartTimeForDate(DateOnly date)
+    {
+        // Get last task's end time for the selected date
+        var lastTask = _allTasks
+            .Where(t => t.Date == date)
             .OrderByDescending(t => t.EndTime)
             .FirstOrDefault();
 
-        if (todayTasks != null)
+        if (lastTask != null)
         {
-            StartTime = todayTasks.EndTime.ToString("HH:mm");
+            StartTime = lastTask.EndTime.ToString("HH:mm");
         }
         else if (_authService.CurrentUser?.DefaultStartTime != null)
         {
@@ -77,9 +92,6 @@ public partial class TaskLogViewModel : ViewModelBase
         {
             StartTime = "09:00";
         }
-
-        // Do not prepopulate end time
-        EndTime = "";
     }
 
     [RelayCommand]
