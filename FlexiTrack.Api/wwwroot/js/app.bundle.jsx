@@ -457,6 +457,24 @@ function DashboardPage() {
     const [dateFilter, setDateFilter] = React.useState('today');
     const [clientFilter, setClientFilter] = React.useState('all');
 
+    // Export month dropdown - last 12 months
+    const [exportMonth, setExportMonth] = React.useState(() => {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    const availableMonths = React.useMemo(() => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const label = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            months.push({ value, label });
+        }
+        return months;
+    }, []);
+
     const getDateFilteredTaskLogs = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -916,13 +934,36 @@ function DashboardPage() {
     };
 
     const exportToCsv = () => {
-        if (filteredTaskLogs.length === 0) {
-            setMessage({ type: 'error', text: 'No task logs to export' });
+        // Parse selected month
+        const [year, month] = exportMonth.split('-').map(Number);
+        const firstOfMonth = new Date(year, month - 1, 1);
+        const lastOfMonth = new Date(year, month, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Use last day of month or today if current month
+        const endDate = lastOfMonth > today ? today : lastOfMonth;
+
+        const firstOfMonthStr = firstOfMonth.toISOString().split('T')[0];
+        const endDateStr = endDate.toISOString().split('T')[0];
+
+        // Filter by selected month
+        let logsToExport = taskLogs.filter(log => log.date >= firstOfMonthStr && log.date <= endDateStr);
+
+        // Apply client filter
+        if (clientFilter === 'none') {
+            logsToExport = logsToExport.filter(log => !log.client);
+        } else if (clientFilter !== 'all') {
+            logsToExport = logsToExport.filter(log => log.client === clientFilter);
+        }
+
+        if (logsToExport.length === 0) {
+            setMessage({ type: 'error', text: 'No task logs to export for the selected month' });
             return;
         }
 
         const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
-        const rows = filteredTaskLogs.map(log => {
+        const rows = logsToExport.map(log => {
             const duration = calculateDuration(log.startTime, log.endTime);
             return [
                 log.date,
@@ -939,11 +980,14 @@ function DashboardPage() {
             ...rows.map(row => row.join(','))
         ].join('\n');
 
+        const clientSuffix = clientFilter !== 'all' ? (clientFilter === 'none' ? 'NoClient' : clientFilter) : 'All';
+        const filename = `${clientSuffix}-${exportMonth}.csv`;
+
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `task-logs-${taskDate}.csv`);
+        link.setAttribute('download', filename);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -1202,6 +1246,15 @@ function DashboardPage() {
                                 <option value="none">No Client</option>
                                 {visibleClients.map((c, idx) => (
                                     <option key={idx} value={c}>{c}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={exportMonth}
+                                onChange={(e) => setExportMonth(e.target.value)}
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #28a745', color: '#28a745', background: 'white', cursor: 'pointer' }}
+                            >
+                                {availableMonths.map((m) => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
                                 ))}
                             </select>
                             <button
