@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -33,6 +34,15 @@ public partial class TaskLogViewModel : ViewModelBase
     [ObservableProperty]
     private IEnumerable<string> _clients = [];
 
+    [ObservableProperty]
+    private string _listClientFilter = "all";
+
+    [ObservableProperty]
+    private ObservableCollection<TaskLogDto> _tasksForDate = [];
+
+    [ObservableProperty]
+    private string _totalDuration = "";
+
     public string Duration
     {
         get
@@ -63,6 +73,9 @@ public partial class TaskLogViewModel : ViewModelBase
         // Set start time based on selected date
         UpdateStartTimeForDate(DateOnly.FromDateTime(Date));
 
+        // Update task list for current date
+        UpdateTasksForDate();
+
         // Do not prepopulate end time
         EndTime = "";
     }
@@ -70,6 +83,39 @@ public partial class TaskLogViewModel : ViewModelBase
     partial void OnDateChanged(DateTime value)
     {
         UpdateStartTimeForDate(DateOnly.FromDateTime(value));
+        UpdateTasksForDate();
+    }
+
+    partial void OnListClientFilterChanged(string value)
+    {
+        UpdateTasksForDate();
+    }
+
+    private void UpdateTasksForDate()
+    {
+        var date = DateOnly.FromDateTime(Date);
+        var tasks = _allTasks
+            .Where(t => t.Date == date)
+            .OrderByDescending(t => t.EndTime)
+            .ThenByDescending(t => t.StartTime);
+
+        // Apply client filter
+        var filtered = ListClientFilter == "all"
+            ? tasks
+            : tasks.Where(t => t.Client == ListClientFilter);
+
+        TasksForDate = new ObservableCollection<TaskLogDto>(filtered);
+
+        // Calculate total duration
+        var totalMinutes = TasksForDate.Sum(t =>
+        {
+            var duration = t.EndTime.ToTimeSpan() - t.StartTime.ToTimeSpan();
+            return duration.TotalMinutes;
+        });
+
+        var hours = (int)(totalMinutes / 60);
+        var minutes = (int)(totalMinutes % 60);
+        TotalDuration = totalMinutes > 0 ? $"{hours}h {minutes}m" : "";
     }
 
     private void UpdateStartTimeForDate(DateOnly date)
@@ -119,6 +165,11 @@ public partial class TaskLogViewModel : ViewModelBase
                 var savedDuration = Duration;
                 var savedDescription = Description.Trim();
                 var savedEndTime = EndTime;
+
+                // Refresh tasks and update list
+                _allTasks = await _apiClient.GetTaskLogsAsync();
+                Clients = await _apiClient.GetClientsAsync();
+                UpdateTasksForDate();
 
                 // Reset form - start time becomes previous end time, end time is cleared
                 Description = "";

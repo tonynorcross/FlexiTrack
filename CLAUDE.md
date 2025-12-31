@@ -80,6 +80,7 @@ The WPF desktop app runs in the Windows system tray and connects to the API.
 - System tray integration (left-click opens popup, right-click for menu)
 - Quick task logging with client autocomplete
 - Auto-set start time when date changes (last task's end time or user default)
+- Entries list for selected date with client filter and total duration
 - Today's summary with date/client filters
 - Export with month dropdown (last 12 months) and consolidate option
 - Export ZIP with all data grouped by month
