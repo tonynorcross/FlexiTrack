@@ -70,6 +70,7 @@ public partial class ExportView : UserControl
             ClientCombo.Items.Add(allClientsItem);
 
             int selectedIndex = 0; // Default to "All Clients"
+            bool foundSelection = _viewModel.SelectedClient == "all";
 
             int index = 1;
             foreach (var client in _viewModel.AvailableClients)
@@ -78,11 +79,19 @@ public partial class ExportView : UserControl
                 if (_viewModel.SelectedClient == client)
                 {
                     selectedIndex = index;
+                    foundSelection = true;
                 }
                 index++;
             }
 
-            // Set the selected index
+            // If selected client no longer exists, reset to "All Clients"
+            if (!foundSelection)
+            {
+                _viewModel.SelectedClient = "all";
+                selectedIndex = 0;
+            }
+
+            // Set the selected index (ensures no blank selection)
             ClientCombo.SelectedIndex = selectedIndex;
         }
         finally

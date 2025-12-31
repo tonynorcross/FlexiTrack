@@ -173,7 +173,7 @@ public partial class App : Application
 
         var result = loginWindow.ShowDialog();
         LogService.Log($"LoginWindow closed, result={result}, showPopupAfterLogin={showPopupAfterLogin}");
-        if (result == true && showPopupAfterLogin)
+        if (result == true)
         {
             LogService.Log("Showing popup after login...");
             // Show popup after successful login
