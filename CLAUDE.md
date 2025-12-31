@@ -79,10 +79,13 @@ The WPF desktop app runs in the Windows system tray and connects to the API.
 ### Features
 - System tray integration (left-click opens popup, right-click for menu)
 - Quick task logging with client autocomplete
+- Auto-set start time when date changes (last task's end time or user default)
 - Today's summary with date/client filters
-- Export (CSV per period, ZIP for all data)
+- Export with month dropdown (last 12 months) and consolidate option
+- Export ZIP with all data grouped by month
 - Edit and delete task logs
 - Auto-restore session from saved token
+- Shows Log screen automatically after login
 
 ### Running the Desktop App
 
@@ -120,7 +123,12 @@ Default admin: `admin@flexitrack.com` / `Admin123!`
 ### Filtering & Export
 - Date filters: Today, This Week, Last Week, Last Month, This Month
 - Client filter: All Clients, No Client, or specific client
-- CSV export of filtered task logs
+- Month dropdown for export (last 12 months, current month default)
+- CSV export with two formats:
+  - **Detail**: Date, Start Time, End Time, Duration, Client, Description
+  - **Consolidated**: Date (dd MMM yy), Hours, Tasks (comma-separated)
+- Filename format: `ClientName-YYYYMMDD.csv` (consolidated) or `ClientName-YYYYMMDD-detail.csv`
+- Desktop app: Export ZIP with all data grouped by month
 
 ### Dashboard Charts
 - Visual bar chart showing hours worked
