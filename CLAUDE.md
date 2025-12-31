@@ -1,12 +1,13 @@
 # FlexiTrack
 
-A time tracking and task management application built with ASP.NET Core and React.
+A time tracking and task management application built with ASP.NET Core, React, and WPF.
 
 ## Tech Stack
 
 - **Backend:** ASP.NET Core 10 with minimal APIs
 - **Database:** SQL Server (LocalDB/SQL Express) with Entity Framework Core
 - **Frontend:** React 18 with React Router v5 (loaded via CDN, no build step)
+- **Desktop:** WPF (.NET 10) with system tray integration
 - **Authentication:** JWT Bearer tokens with ASP.NET Core Identity
 
 ## Project Structure
@@ -29,6 +30,13 @@ FlexiTrack/
 │   │   ├── index.html        # Main HTML with embedded CSS
 │   │   └── js/app.bundle.jsx # React application (JSX, compiled by Babel in browser)
 │   └── Program.cs            # Application entry point
+├── FlexiTrack.Desktop/       # WPF desktop application
+│   ├── Infrastructure/       # Converters, messages
+│   ├── Models/               # DTOs matching API contracts
+│   ├── Services/             # API client, auth, token storage
+│   ├── ViewModels/           # MVVM view models
+│   ├── Views/                # XAML views and windows
+│   └── Resources/            # Styles and resources
 ├── FlexiTrack.Mediator/      # Custom mediator pattern implementation
 └── FlexiTrack.slnx           # Solution file
 ```
@@ -57,6 +65,36 @@ FlexiTrack/
 - Single `app.bundle.jsx` file containing all React components
 - Uses Babel in-browser compilation (no webpack/build step)
 - Cache buster query param on script tag for updates: `?v=YYYYMMDD`
+
+## Desktop Application
+
+The WPF desktop app runs in the Windows system tray and connects to the API.
+
+### Tech Stack
+- WPF (.NET 10.0-windows)
+- CommunityToolkit.Mvvm (MVVM with source generators)
+- Hardcodet.NotifyIcon.Wpf (system tray)
+- Windows DPAPI for secure token storage
+
+### Features
+- System tray integration (left-click opens popup, right-click for menu)
+- Quick task logging with client autocomplete
+- Today's summary with date/client filters
+- Export (CSV per period, ZIP for all data)
+- Edit and delete task logs
+- Auto-restore session from saved token
+
+### Running the Desktop App
+
+```bash
+cd FlexiTrack.Desktop
+dotnet run
+```
+
+Requires the API to be running at http://localhost:5265
+
+### Error Logging
+Logs are written to: `%LocalAppData%\FlexiTrack\error.log`
 
 ## Running the Application
 
