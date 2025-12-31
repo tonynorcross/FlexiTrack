@@ -475,6 +475,9 @@ function DashboardPage() {
         return months;
     }, []);
 
+    // Consolidate export option
+    const [consolidate, setConsolidate] = React.useState(false);
+
     const getDateFilteredTaskLogs = () => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -962,26 +965,72 @@ function DashboardPage() {
             return;
         }
 
-        const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
-        const rows = logsToExport.map(log => {
-            const duration = calculateDuration(log.startTime, log.endTime);
-            return [
-                log.date,
-                formatTimeNoSeconds(log.startTime),
-                formatTimeNoSeconds(log.endTime),
-                duration,
-                log.client || '',
-                `"${(log.description || '').replace(/"/g, '""')}"`
-            ];
-        });
+        let csvContent;
+        if (consolidate) {
+            // Consolidated format: Date, Hours, Tasks
+            const headers = ['Date', 'Hours', 'Tasks'];
 
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
-        ].join('\n');
+            // Group by date
+            const groupedByDate = {};
+            logsToExport.forEach(log => {
+                if (!groupedByDate[log.date]) {
+                    groupedByDate[log.date] = [];
+                }
+                groupedByDate[log.date].push(log);
+            });
 
-        const clientSuffix = clientFilter !== 'all' ? (clientFilter === 'none' ? 'NoClient' : clientFilter) : 'All';
-        const filename = `${clientSuffix}-${exportMonth}.csv`;
+            const rows = Object.keys(groupedByDate).sort().map(date => {
+                const logs = groupedByDate[date];
+                // Calculate total hours
+                let totalMinutes = 0;
+                logs.forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+                const hours = (totalMinutes / 60).toFixed(2);
+
+                // Combine descriptions
+                const tasks = logs.map(l => l.description).join(', ');
+
+                // Format date as "01 Jan 26"
+                const dateObj = new Date(date + 'T00:00:00');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const monthName = dateObj.toLocaleString('default', { month: 'short' });
+                const yr = String(dateObj.getFullYear()).slice(-2);
+                const formattedDate = `${day} ${monthName} ${yr}`;
+
+                return [formattedDate, hours, `"${tasks.replace(/"/g, '""')}"`];
+            });
+
+            csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+        } else {
+            // Detail format
+            const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
+            const rows = logsToExport.map(log => {
+                const duration = calculateDuration(log.startTime, log.endTime);
+                return [
+                    log.date,
+                    formatTimeNoSeconds(log.startTime),
+                    formatTimeNoSeconds(log.endTime),
+                    duration,
+                    log.client || '',
+                    `"${(log.description || '').replace(/"/g, '""')}"`
+                ];
+            });
+
+            csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+        }
+
+        // Filename: ClientName-YYYYMMDD.csv (consolidated) or ClientName-YYYYMMDD-detail.csv
+        const clientId = clientFilter !== 'all' ? (clientFilter === 'none' ? 'NoClient' : clientFilter) : 'All';
+        const endDateFormatted = endDate.toISOString().split('T')[0].replace(/-/g, '');
+        const detailSuffix = consolidate ? '' : '-detail';
+        const filename = `${clientId}-${endDateFormatted}${detailSuffix}.csv`;
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -1257,6 +1306,14 @@ function DashboardPage() {
                                     <option key={m.value} value={m.value}>{m.label}</option>
                                 ))}
                             </select>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem', color: '#28a745', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={consolidate}
+                                    onChange={(e) => setConsolidate(e.target.checked)}
+                                />
+                                Consolidate
+                            </label>
                             <button
                                 className="btn-small"
                                 onClick={exportToCsv}
