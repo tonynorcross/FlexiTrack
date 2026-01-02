@@ -97,6 +97,44 @@ dotnet run
 
 Requires the API to be running at http://localhost:5265
 
+### Building the MSIX Installer
+
+The desktop app can be packaged as an MSIX installer for distribution.
+
+**Prerequisites:**
+- Windows SDK Build Tools (automatically installed via NuGet)
+
+**Build the MSIX package:**
+```powershell
+cd FlexiTrack.Desktop
+.\build-msix.ps1                    # Build and sign with test certificate
+.\build-msix.ps1 -SkipSign          # Build without signing
+.\build-msix.ps1 -Version "1.2.0.0" # Specify version
+```
+
+Output: `AppPackages\FlexiTrack.Desktop_<version>.msix`
+
+**Install the MSIX package (requires Administrator):**
+```powershell
+# Option 1: Use the installer script (recommended)
+.\install-msix.ps1
+
+# Option 2: Manual installation
+certutil -addstore Root AppPackages\FlexiTrack.cer
+certutil -addstore TrustedPeople AppPackages\FlexiTrack.cer
+Add-AppxPackage -Path AppPackages\FlexiTrack.Desktop_1.0.0.0.msix
+```
+
+**Helper scripts:**
+- `build-msix.ps1` - Builds the MSIX package
+- `install-msix.ps1` - Installs certificate and MSIX (requires admin)
+- `install-cert.ps1` - Exports and installs the certificate
+- `generate-icons.ps1` - Regenerates placeholder icons
+
+**For production release:**
+1. Replace placeholder icons in `Assets/` with branded PNGs
+2. Sign with a trusted code signing certificate
+
 ### Error Logging
 Logs are written to: `%LocalAppData%\FlexiTrack\error.log`
 
