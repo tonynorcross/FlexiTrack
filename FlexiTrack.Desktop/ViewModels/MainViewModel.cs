@@ -1,40 +1,22 @@
 using System.Windows;
 using CommunityToolkit.Mvvm.Input;
-using FlexiTrack.Desktop.Services;
 using FlexiTrack.Desktop.Views;
 using Hardcodet.Wpf.TaskbarNotification;
+using Microsoft.Extensions.Configuration;
 using static FlexiTrack.Desktop.Services.LogService;
 
 namespace FlexiTrack.Desktop.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    private readonly IAuthService _authService;
-    private readonly IServiceProvider _serviceProvider;
-    private TrayPopupWindow? _popupWindow;
+    private readonly string _apiUrl;
+    private WebViewPopupWindow? _popupWindow;
 
     public TaskbarIcon? TrayIcon { get; set; }
 
-    public MainViewModel(IAuthService authService, IServiceProvider serviceProvider)
+    public MainViewModel(IConfiguration configuration)
     {
-        _authService = authService;
-        _serviceProvider = serviceProvider;
-
-        _authService.AuthenticationChanged += OnAuthenticationChanged;
-    }
-
-    private void OnAuthenticationChanged(object? sender, bool isAuthenticated)
-    {
-        Log($"OnAuthenticationChanged: {isAuthenticated}");
-        if (!isAuthenticated)
-        {
-            Application.Current.Dispatcher.Invoke(() =>
-            {
-                _popupWindow?.Close();
-                _popupWindow = null;
-                ((App)Application.Current).ShowLoginWindow(showPopupAfterLogin: true);
-            });
-        }
+        _apiUrl = configuration["Api:BaseUrl"] ?? "http://localhost:5265";
     }
 
     [RelayCommand]
@@ -44,25 +26,16 @@ public partial class MainViewModel : ViewModelBase
         {
             Log("ShowPopup called");
 
-            // Check if user is authenticated
-            if (!_authService.IsAuthenticated)
-            {
-                Log("User not authenticated, showing login...");
-                ((App)Application.Current).ShowLoginWindow(showPopupAfterLogin: true);
-                return;
-            }
-
             if (_popupWindow != null && _popupWindow.IsVisible)
             {
                 _popupWindow.Activate();
                 return;
             }
 
-            Log("Creating TrayPopupWindow...");
-            _popupWindow = new TrayPopupWindow(_serviceProvider);
-            Log("TrayPopupWindow created, calling Show...");
+            Log("Creating WebViewPopupWindow...");
+            _popupWindow = new WebViewPopupWindow(_apiUrl);
             _popupWindow.Show();
-            Log("TrayPopupWindow shown");
+            Log("WebViewPopupWindow shown");
             PositionPopupNearTray();
         }
         catch (Exception ex)
@@ -81,7 +54,7 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
-            _popupWindow = new TrayPopupWindow(_serviceProvider);
+            _popupWindow = new WebViewPopupWindow(_apiUrl);
             _popupWindow.Show();
             PositionPopupNearTray();
         }
@@ -103,9 +76,11 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task LogoutAsync()
     {
-        _popupWindow?.Close();
-        _popupWindow = null;
-        await _authService.LogoutAsync();
+        if (_popupWindow != null)
+        {
+            await _popupWindow.ClearBrowsingDataAsync();
+            _popupWindow.NavigateToApp();
+        }
     }
 
     [RelayCommand]
