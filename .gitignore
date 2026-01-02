@@ -23,3 +23,6 @@ appsettings.*.json
 # OS files
 .DS_Store
 Thumbs.db
+
+# MSIX build output
+AppPackages/
