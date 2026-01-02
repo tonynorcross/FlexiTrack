@@ -19,4 +19,7 @@ public class ApplicationUser : IdentityUser
 
     public decimal? WeeklyHoursTarget { get; set; }
     public TimeOnly? DefaultStartTime { get; set; }
+    public string WorkingDays { get; set; } = "Mon,Tue,Wed,Thu,Fri";
+    public decimal HoursPerDay { get; set; } = 7.5m;
+    public string? BankHolidayRegion { get; set; }
 }

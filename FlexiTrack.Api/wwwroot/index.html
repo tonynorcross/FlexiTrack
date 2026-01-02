@@ -73,6 +73,16 @@
         /* Profile */
         .profile-details { display: grid; gap: 1rem; }
 
+        /* Checkbox group */
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 12px; }
+        .checkbox-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .checkbox-label input[type="checkbox"] { width: auto; }
+
+        /* Notice banner */
+        .notice-banner { background: #ffc107; color: #212529; padding: 12px 16px; text-align: center; font-size: 14px; border-radius: 4px; margin-bottom: 16px; }
+        .notice-banner.weekend { background: #17a2b8; color: white; }
+        .notice-banner.holiday { background: #ffc107; color: #212529; }
+
         /* Responsive */
         @media (max-width: 600px) {
             .container { margin: 1rem; padding: 1rem; }
@@ -98,6 +108,6 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <!-- App Bundle -->
-    <script type="text/babel" data-presets="react" src="/js/app.bundle.jsx?v=20251231b"></script>
+    <script type="text/babel" data-presets="react" src="/js/app.bundle.jsx?v=20260101c"></script>
 </body>
 </html>

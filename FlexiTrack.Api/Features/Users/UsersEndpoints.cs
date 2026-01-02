@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using FlexiTrack.Api.Authorization;
+using FlexiTrack.Api.Services;
 using FlexiTrack.Mediator;
 
 namespace FlexiTrack.Api.Features.Users;
@@ -60,13 +61,51 @@ public static class UsersEndpoints
         // Update user settings
         group.MapPut("/settings", async (UpdateUserSettingsRequest request, ClaimsPrincipal user, IMediator mediator, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new UpdateUserSettings.Command(user, request.WeeklyHoursTarget, request.DefaultStartTime), ct);
+            var result = await mediator.Send(new UpdateUserSettings.Command(
+                user,
+                request.WeeklyHoursTarget,
+                request.DefaultStartTime,
+                request.WorkingDays,
+                request.HoursPerDay,
+                request.BankHolidayRegion), ct);
             return result.Success ? Results.Ok(result) : Results.BadRequest(result);
         })
         .RequireAuthorization()
         .WithName("UpdateUserSettings");
+
+        // Check if a date is a bank holiday
+        group.MapGet("/bank-holiday-check", async (string? date, ClaimsPrincipal user, IBankHolidayService holidayService, IMediator mediator, CancellationToken ct) =>
+        {
+            var profile = await mediator.Send(new GetProfile.Query(user), ct);
+            if (profile == null)
+            {
+                return Results.NotFound();
+            }
+
+            if (string.IsNullOrEmpty(profile.BankHolidayRegion))
+            {
+                return Results.Ok(new BankHolidayCheckResponse(false, null));
+            }
+
+            var checkDate = string.IsNullOrEmpty(date)
+                ? DateOnly.FromDateTime(DateTime.Today)
+                : DateOnly.Parse(date);
+
+            var isHoliday = holidayService.IsBankHoliday(checkDate, profile.BankHolidayRegion);
+            var holidayName = isHoliday ? holidayService.GetHolidayName(checkDate, profile.BankHolidayRegion) : null;
+
+            return Results.Ok(new BankHolidayCheckResponse(isHoliday, holidayName));
+        })
+        .RequireAuthorization()
+        .WithName("CheckBankHoliday");
     }
 }
 
 public record SetSystemAdminRequest(bool IsAdmin);
-public record UpdateUserSettingsRequest(decimal? WeeklyHoursTarget, string? DefaultStartTime);
+public record UpdateUserSettingsRequest(
+    decimal? WeeklyHoursTarget,
+    string? DefaultStartTime,
+    string? WorkingDays,
+    decimal? HoursPerDay,
+    string? BankHolidayRegion);
+public record BankHolidayCheckResponse(bool IsHoliday, string? HolidayName);

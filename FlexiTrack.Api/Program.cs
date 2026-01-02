@@ -52,6 +52,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(AuthorizationPolicies.AddPolicies);
 builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddSingleton<IBankHolidayService, BankHolidayService>();
 
 builder.Services.AddOpenApi();
 builder.Services.AddMediator(typeof(Program).Assembly);

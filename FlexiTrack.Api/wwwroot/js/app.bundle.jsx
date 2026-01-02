@@ -109,6 +109,54 @@ function Message({ message }) {
     );
 }
 
+function NoticeBanner() {
+    const { user, profile } = useAuth();
+    const [notice, setNotice] = React.useState(null);
+
+    React.useEffect(() => {
+        checkNotice();
+    }, [profile]);
+
+    const checkNotice = async () => {
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+
+        // Check weekend
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            setNotice({ type: 'weekend', message: 'Weekend' });
+            return;
+        }
+
+        // Check bank holiday if region is set
+        if (profile?.bankHolidayRegion && user?.token) {
+            try {
+                const res = await fetch(`/api/users/bank-holiday-check?date=${today.toISOString().split('T')[0]}`, {
+                    headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.isHoliday) {
+                        setNotice({ type: 'holiday', message: `Bank Holiday - ${data.holidayName}` });
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to check bank holiday');
+            }
+        }
+
+        setNotice(null);
+    };
+
+    if (!notice) return null;
+
+    return (
+        <div className={`notice-banner ${notice.type}`}>
+            {notice.message}
+        </div>
+    );
+}
+
 function Layout({ children, title, showNav = false, onLogout, isAdmin = false, userName = null }) {
     const history = ReactRouterDOM.useHistory();
 
@@ -122,12 +170,48 @@ function Layout({ children, title, showNav = false, onLogout, isAdmin = false, u
                     <div className="nav-links">
                         {isAdmin && <a onClick={() => history.push('/admin/users')}>Users</a>}
                         {isAdmin && <a onClick={() => history.push('/admin/companies')}>Companies</a>}
-                        {userName && <a onClick={() => history.push('/profile')} title="Settings">{userName}</a>}
-                        <a onClick={onLogout} className="logout">Logout</a>
+                        <a onClick={() => history.push('/charts')} title="Charts">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                        </a>
+                        <a onClick={() => history.push('/summary')} title="Summary">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
+                                <line x1="8" y1="6" x2="21" y2="6"></line>
+                                <line x1="8" y1="12" x2="21" y2="12"></line>
+                                <line x1="8" y1="18" x2="21" y2="18"></line>
+                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                            </svg>
+                        </a>
+                        <a onClick={() => history.push('/export')} title="Export">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </a>
+                        {userName && <a onClick={() => history.push('/profile')} title="Settings">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                            </svg>
+                        </a>}
+                        <a onClick={onLogout} className="logout" title="Logout">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                        </a>
                     </div>
                 </nav>
             )}
             <div className="container">
+                {showNav && <NoticeBanner />}
                 {title && <h1>{title}</h1>}
                 {children}
             </div>
@@ -435,15 +519,6 @@ function DashboardPage() {
     const [logging, setLogging] = React.useState(false);
     const [taskLogs, setTaskLogs] = React.useState([]);
 
-    // Edit state
-    const [editingId, setEditingId] = React.useState(null);
-    const [editDate, setEditDate] = React.useState('');
-    const [editStartTime, setEditStartTime] = React.useState('');
-    const [editEndTime, setEditEndTime] = React.useState('');
-    const [editClient, setEditClient] = React.useState('');
-    const [editDescription, setEditDescription] = React.useState('');
-    const [saving, setSaving] = React.useState(false);
-
     // Client autocomplete state
     const [showClientSuggestions, setShowClientSuggestions] = React.useState(false);
     const [filteredClients, setFilteredClients] = React.useState([]);
@@ -452,245 +527,6 @@ function DashboardPage() {
     const clients = React.useMemo(() => {
         return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
     }, [taskLogs]);
-
-    // Date filter state
-    const [dateFilter, setDateFilter] = React.useState('today');
-    const [clientFilter, setClientFilter] = React.useState('all');
-
-    // Export month dropdown - last 12 months
-    const [exportMonth, setExportMonth] = React.useState(() => {
-        const today = new Date();
-        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    });
-
-    const availableMonths = React.useMemo(() => {
-        const months = [];
-        const today = new Date();
-        for (let i = 0; i < 12; i++) {
-            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-            const label = date.toLocaleString('default', { month: 'short', year: 'numeric' });
-            months.push({ value, label });
-        }
-        return months;
-    }, []);
-
-    // Consolidate export option
-    const [consolidate, setConsolidate] = React.useState(false);
-
-    const getDateFilteredTaskLogs = () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
-
-        if (dateFilter === 'today') {
-            return taskLogs.filter(log => log.date === todayStr);
-        } else if (dateFilter === 'week') {
-            const dayOfWeek = today.getDay();
-            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-            const monday = new Date(today);
-            monday.setDate(today.getDate() + mondayOffset);
-            const mondayStr = monday.toISOString().split('T')[0];
-            return taskLogs.filter(log => log.date >= mondayStr && log.date <= todayStr);
-        } else if (dateFilter === 'lastweek') {
-            const dayOfWeek = today.getDay();
-            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-            const thisMonday = new Date(today);
-            thisMonday.setDate(today.getDate() + mondayOffset);
-            const lastMonday = new Date(thisMonday);
-            lastMonday.setDate(thisMonday.getDate() - 7);
-            const lastSunday = new Date(thisMonday);
-            lastSunday.setDate(thisMonday.getDate() - 1);
-            const lastMondayStr = lastMonday.toISOString().split('T')[0];
-            const lastSundayStr = lastSunday.toISOString().split('T')[0];
-            return taskLogs.filter(log => log.date >= lastMondayStr && log.date <= lastSundayStr);
-        } else if (dateFilter === 'lastmonth') {
-            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-            const firstOfLastMonthStr = firstOfLastMonth.toISOString().split('T')[0];
-            const lastOfLastMonthStr = lastOfLastMonth.toISOString().split('T')[0];
-            return taskLogs.filter(log => log.date >= firstOfLastMonthStr && log.date <= lastOfLastMonthStr);
-        } else if (dateFilter === 'month') {
-            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            const firstOfMonthStr = firstOfMonth.toISOString().split('T')[0];
-            return taskLogs.filter(log => log.date >= firstOfMonthStr && log.date <= todayStr);
-        }
-
-        return taskLogs;
-    };
-
-    const dateFilteredTaskLogs = getDateFilteredTaskLogs();
-
-    // Get distinct clients from date-filtered logs, sorted alphabetically
-    const visibleClients = [...new Set(dateFilteredTaskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
-
-    const getFilteredTaskLogs = () => {
-        let filtered = dateFilteredTaskLogs;
-
-        // Client filtering
-        if (clientFilter === 'none') {
-            filtered = filtered.filter(log => !log.client);
-        } else if (clientFilter !== 'all') {
-            filtered = filtered.filter(log => log.client === clientFilter);
-        }
-
-        return filtered;
-    };
-
-    const filteredTaskLogs = getFilteredTaskLogs();
-
-    const getTotalDuration = () => {
-        let totalMinutes = 0;
-        filteredTaskLogs.forEach(log => {
-            if (log.startTime && log.endTime) {
-                const [startH, startM] = log.startTime.split(':').map(Number);
-                const [endH, endM] = log.endTime.split(':').map(Number);
-                let mins = (endH * 60 + endM) - (startH * 60 + startM);
-                if (mins < 0) mins += 24 * 60;
-                totalMinutes += mins;
-            }
-        });
-        const hours = Math.floor(totalMinutes / 60);
-        const minutes = totalMinutes % 60;
-        if (totalMinutes === 0) return '0h';
-        if (hours === 0) return `${minutes}m`;
-        if (minutes === 0) return `${hours}h`;
-        return `${hours}h ${minutes}m`;
-    };
-
-    const getChartData = () => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
-        const dayOfWeek = today.getDay();
-        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-
-        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-        // Apply client filter to task logs for chart
-        const clientFilteredLogs = clientFilter === 'all'
-            ? taskLogs
-            : clientFilter === 'none'
-                ? taskLogs.filter(log => !log.client)
-                : taskLogs.filter(log => log.client === clientFilter);
-
-        const getWeekData = (mondayDate) => {
-            const summary = [];
-            for (let i = 0; i < 7; i++) {
-                const date = new Date(mondayDate);
-                date.setDate(mondayDate.getDate() + i);
-                const dateStr = date.toISOString().split('T')[0];
-
-                let totalMinutes = 0;
-                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
-                    if (log.startTime && log.endTime) {
-                        const [startH, startM] = log.startTime.split(':').map(Number);
-                        const [endH, endM] = log.endTime.split(':').map(Number);
-                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
-                        if (mins < 0) mins += 24 * 60;
-                        totalMinutes += mins;
-                    }
-                });
-
-                summary.push({
-                    day: days[i],
-                    date: dateStr,
-                    minutes: totalMinutes,
-                    hours: (totalMinutes / 60).toFixed(1),
-                    isToday: dateStr === todayStr
-                });
-            }
-            return summary;
-        };
-
-        if (dateFilter === 'week' || dateFilter === 'today') {
-            // This week (Mon-Sun)
-            const thisMonday = new Date(today);
-            thisMonday.setDate(today.getDate() + mondayOffset);
-            return { title: 'This Week', data: getWeekData(thisMonday), type: 'daily' };
-        } else if (dateFilter === 'lastweek') {
-            // Last week (Mon-Sun)
-            const thisMonday = new Date(today);
-            thisMonday.setDate(today.getDate() + mondayOffset);
-            const lastMonday = new Date(thisMonday);
-            lastMonday.setDate(thisMonday.getDate() - 7);
-            return { title: 'Last Week', data: getWeekData(lastMonday), type: 'daily' };
-        } else if (dateFilter === 'lastmonth') {
-            // Last month - show daily totals for previous calendar month
-            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-            const daysInLastMonth = lastOfLastMonth.getDate();
-            const lastMonthName = firstOfLastMonth.toLocaleString('default', { month: 'long' });
-            const monthlySummary = [];
-
-            for (let d = 1; d <= daysInLastMonth; d++) {
-                const date = new Date(firstOfLastMonth.getFullYear(), firstOfLastMonth.getMonth(), d);
-                const dateStr = date.toISOString().split('T')[0];
-
-                let totalMinutes = 0;
-                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
-                    if (log.startTime && log.endTime) {
-                        const [startH, startM] = log.startTime.split(':').map(Number);
-                        const [endH, endM] = log.endTime.split(':').map(Number);
-                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
-                        if (mins < 0) mins += 24 * 60;
-                        totalMinutes += mins;
-                    }
-                });
-
-                monthlySummary.push({
-                    day: d.toString(),
-                    date: dateStr,
-                    minutes: totalMinutes,
-                    hours: (totalMinutes / 60).toFixed(1),
-                    isToday: false
-                });
-            }
-
-            return { title: lastMonthName, data: monthlySummary, type: 'monthly' };
-        } else if (dateFilter === 'month') {
-            // This month - show daily totals
-            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-            const daysInMonth = lastOfMonth.getDate();
-            const monthName = today.toLocaleString('default', { month: 'long' });
-            const monthlySummary = [];
-
-            for (let d = 1; d <= daysInMonth; d++) {
-                const date = new Date(today.getFullYear(), today.getMonth(), d);
-                const dateStr = date.toISOString().split('T')[0];
-
-                let totalMinutes = 0;
-                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
-                    if (log.startTime && log.endTime) {
-                        const [startH, startM] = log.startTime.split(':').map(Number);
-                        const [endH, endM] = log.endTime.split(':').map(Number);
-                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
-                        if (mins < 0) mins += 24 * 60;
-                        totalMinutes += mins;
-                    }
-                });
-
-                monthlySummary.push({
-                    day: d.toString(),
-                    date: dateStr,
-                    minutes: totalMinutes,
-                    hours: (totalMinutes / 60).toFixed(1),
-                    isToday: dateStr === todayStr
-                });
-            }
-
-            return { title: monthName, data: monthlySummary, type: 'monthly' };
-        }
-
-        // Default to this week
-        const thisMonday = new Date(today);
-        thisMonday.setDate(today.getDate() + mondayOffset);
-        return { title: 'This Week', data: getWeekData(thisMonday), type: 'daily' };
-    };
-
-    const chartData = getChartData();
-    const maxHours = Math.max(...chartData.data.map(d => d.minutes / 60), 8);
 
     const fetchTaskLogs = async () => {
         if (!user?.token) return;
@@ -838,211 +674,6 @@ function DashboardPage() {
         }
     };
 
-    const startEdit = (log) => {
-        setEditingId(log.id);
-        setEditDate(log.date);
-        setEditStartTime(log.startTime);
-        setEditEndTime(log.endTime);
-        setEditClient(log.client || '');
-        setEditDescription(log.description);
-    };
-
-    const cancelEdit = () => {
-        setEditingId(null);
-        setEditDate('');
-        setEditStartTime('');
-        setEditEndTime('');
-        setEditClient('');
-        setEditDescription('');
-    };
-
-    const handleSaveEdit = async () => {
-        setMessage(null);
-
-        // Validate date is not in the future
-        const today = new Date().toISOString().split('T')[0];
-        if (editDate > today) {
-            setMessage({ type: 'error', text: 'Date cannot be in the future' });
-            return;
-        }
-
-        // Validate end time is after start time
-        if (timeToMinutes(editEndTime) <= timeToMinutes(editStartTime)) {
-            setMessage({ type: 'error', text: 'End time must be after start time' });
-            return;
-        }
-
-        // Check for overlapping times (exclude current task being edited)
-        const overlapError = checkTimeOverlap(editDate, editStartTime, editEndTime, editingId);
-        if (overlapError) {
-            setMessage({ type: 'error', text: overlapError });
-            return;
-        }
-
-        setSaving(true);
-
-        try {
-            const res = await fetch(`/api/tasks/${editingId}`, {
-                method: 'PUT',
-                headers: {
-                    'Authorization': `Bearer ${user.token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    date: editDate,
-                    startTime: editStartTime,
-                    endTime: editEndTime,
-                    client: editClient || null,
-                    description: editDescription
-                })
-            });
-
-            if (res.ok) {
-                setMessage({ type: 'success', text: 'Task updated successfully' });
-                cancelEdit();
-                fetchTaskLogs();
-            } else {
-                const data = await res.json();
-                setMessage({ type: 'error', text: data.error || 'Failed to update task' });
-            }
-        } catch (err) {
-            setMessage({ type: 'error', text: 'An error occurred' });
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (!confirm('Are you sure you want to delete this task log?')) return;
-
-        setMessage(null);
-        try {
-            const res = await fetch(`/api/tasks/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `Bearer ${user.token}`
-                }
-            });
-
-            if (res.ok) {
-                setMessage({ type: 'success', text: 'Task deleted successfully' });
-                fetchTaskLogs();
-            } else {
-                const data = await res.json();
-                setMessage({ type: 'error', text: data.error || 'Failed to delete task' });
-            }
-        } catch (err) {
-            setMessage({ type: 'error', text: 'An error occurred' });
-        }
-    };
-
-    const exportToCsv = () => {
-        // Parse selected month
-        const [year, month] = exportMonth.split('-').map(Number);
-        const firstOfMonth = new Date(year, month - 1, 1);
-        const lastOfMonth = new Date(year, month, 0);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Use last day of month or today if current month
-        const endDate = lastOfMonth > today ? today : lastOfMonth;
-
-        const firstOfMonthStr = firstOfMonth.toISOString().split('T')[0];
-        const endDateStr = endDate.toISOString().split('T')[0];
-
-        // Filter by selected month
-        let logsToExport = taskLogs.filter(log => log.date >= firstOfMonthStr && log.date <= endDateStr);
-
-        // Apply client filter
-        if (clientFilter === 'none') {
-            logsToExport = logsToExport.filter(log => !log.client);
-        } else if (clientFilter !== 'all') {
-            logsToExport = logsToExport.filter(log => log.client === clientFilter);
-        }
-
-        if (logsToExport.length === 0) {
-            setMessage({ type: 'error', text: 'No task logs to export for the selected month' });
-            return;
-        }
-
-        let csvContent;
-        if (consolidate) {
-            // Consolidated format: Date, Hours, Tasks
-            const headers = ['Date', 'Hours', 'Tasks'];
-
-            // Group by date
-            const groupedByDate = {};
-            logsToExport.forEach(log => {
-                if (!groupedByDate[log.date]) {
-                    groupedByDate[log.date] = [];
-                }
-                groupedByDate[log.date].push(log);
-            });
-
-            const rows = Object.keys(groupedByDate).sort().map(date => {
-                const logs = groupedByDate[date];
-                // Calculate total hours
-                let totalMinutes = 0;
-                logs.forEach(log => {
-                    if (log.startTime && log.endTime) {
-                        const [startH, startM] = log.startTime.split(':').map(Number);
-                        const [endH, endM] = log.endTime.split(':').map(Number);
-                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
-                        if (mins < 0) mins += 24 * 60;
-                        totalMinutes += mins;
-                    }
-                });
-                const hours = (totalMinutes / 60).toFixed(2);
-
-                // Combine descriptions
-                const tasks = logs.map(l => l.description).join(', ');
-
-                // Format date as "01 Jan 26"
-                const dateObj = new Date(date + 'T00:00:00');
-                const day = String(dateObj.getDate()).padStart(2, '0');
-                const monthName = dateObj.toLocaleString('default', { month: 'short' });
-                const yr = String(dateObj.getFullYear()).slice(-2);
-                const formattedDate = `${day} ${monthName} ${yr}`;
-
-                return [formattedDate, hours, `"${tasks.replace(/"/g, '""')}"`];
-            });
-
-            csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-        } else {
-            // Detail format
-            const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
-            const rows = logsToExport.map(log => {
-                const duration = calculateDuration(log.startTime, log.endTime);
-                return [
-                    log.date,
-                    formatTimeNoSeconds(log.startTime),
-                    formatTimeNoSeconds(log.endTime),
-                    duration,
-                    log.client || '',
-                    `"${(log.description || '').replace(/"/g, '""')}"`
-                ];
-            });
-
-            csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-        }
-
-        // Filename: ClientName-YYYYMMDD.csv (consolidated) or ClientName-YYYYMMDD-detail.csv
-        const clientId = clientFilter !== 'all' ? (clientFilter === 'none' ? 'NoClient' : clientFilter) : 'All';
-        const endDateFormatted = endDate.toISOString().split('T')[0].replace(/-/g, '');
-        const detailSuffix = consolidate ? '' : '-detail';
-        const filename = `${clientId}-${endDateFormatted}${detailSuffix}.csv`;
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', filename);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
     if (!profile) {
         return (
             <Layout title="Dashboard" showNav onLogout={logout}>
@@ -1169,12 +800,217 @@ function DashboardPage() {
                     </form>
                 </div>
 
+                {isCompanyAdmin && !isSystemAdmin && (
+                    <div className="card">
+                        <h2>Company Administration</h2>
+                        <p>You are a company administrator.</p>
+                        <button onClick={() => history.push(`/admin/companies/${profile.companyId}`)}>
+                            Manage Company Users
+                        </button>
+                    </div>
+                )}
+            </div>
+        </Layout>
+    );
+}
+
+function ChartsPage() {
+    const { user, profile, logout, isSystemAdmin } = useAuth();
+    const [taskLogs, setTaskLogs] = React.useState([]);
+
+    const [dateFilter, setDateFilter] = React.useState('week');
+    const [clientFilter, setClientFilter] = React.useState('all');
+
+    const clients = React.useMemo(() => {
+        return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
+    }, [taskLogs]);
+
+    React.useEffect(() => {
+        const fetchTaskLogs = async () => {
+            try {
+                const res = await fetch('/api/tasks/logs', {
+                    headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setTaskLogs(data.taskLogs);
+                }
+            } catch (err) {
+                console.error('Failed to fetch task logs:', err);
+            }
+        };
+        if (user?.token) fetchTaskLogs();
+    }, [user]);
+
+    const getChartData = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+        const dayOfWeek = today.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        const clientFilteredLogs = clientFilter === 'all'
+            ? taskLogs
+            : clientFilter === 'none'
+                ? taskLogs.filter(log => !log.client)
+                : taskLogs.filter(log => log.client === clientFilter);
+
+        const getWeekData = (mondayDate) => {
+            const summary = [];
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(mondayDate);
+                date.setDate(mondayDate.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                summary.push({
+                    day: days[i],
+                    date: dateStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: dateStr === todayStr
+                });
+            }
+            return summary;
+        };
+
+        if (dateFilter === 'week') {
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            return { title: 'This Week', data: getWeekData(thisMonday), type: 'daily' };
+        } else if (dateFilter === 'lastweek') {
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            const lastMonday = new Date(thisMonday);
+            lastMonday.setDate(thisMonday.getDate() - 7);
+            return { title: 'Last Week', data: getWeekData(lastMonday), type: 'daily' };
+        } else if (dateFilter === 'lastmonth') {
+            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            const daysInLastMonth = lastOfLastMonth.getDate();
+            const lastMonthName = firstOfLastMonth.toLocaleString('default', { month: 'long' });
+            const monthlySummary = [];
+
+            for (let d = 1; d <= daysInLastMonth; d++) {
+                const date = new Date(firstOfLastMonth.getFullYear(), firstOfLastMonth.getMonth(), d);
+                const dateStr = date.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                monthlySummary.push({
+                    day: d.toString(),
+                    date: dateStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: false
+                });
+            }
+
+            return { title: lastMonthName, data: monthlySummary, type: 'monthly' };
+        } else if (dateFilter === 'month') {
+            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            const daysInMonth = lastOfMonth.getDate();
+            const monthName = today.toLocaleString('default', { month: 'long' });
+            const monthlySummary = [];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(today.getFullYear(), today.getMonth(), d);
+                const dateStr = date.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                monthlySummary.push({
+                    day: d.toString(),
+                    date: dateStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: dateStr === todayStr
+                });
+            }
+
+            return { title: monthName, data: monthlySummary, type: 'monthly' };
+        }
+
+        const thisMonday = new Date(today);
+        thisMonday.setDate(today.getDate() + mondayOffset);
+        return { title: 'This Week', data: getWeekData(thisMonday), type: 'daily' };
+    };
+
+    const chartData = getChartData();
+    const maxHours = Math.max(...chartData.data.map(d => d.minutes / 60), 8);
+
+    if (!profile) {
+        return (
+            <Layout title="Charts" showNav onLogout={logout}>
+                <p>Loading...</p>
+            </Layout>
+        );
+    }
+
+    return (
+        <Layout showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
+            <div className="dashboard">
                 <div className="card">
-                    <h2>{chartData.title}</h2>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <h2 style={{ margin: 0 }}>{chartData.title}</h2>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {['week', 'lastweek', 'month', 'lastmonth'].map(filter => (
+                                <button
+                                    key={filter}
+                                    className={dateFilter === filter ? 'btn-small' : 'btn-small btn-outline'}
+                                    onClick={() => setDateFilter(filter)}
+                                    style={dateFilter !== filter ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                                >
+                                    {filter === 'week' ? 'This Week' : filter === 'lastweek' ? 'Last Week' : filter === 'month' ? 'This Month' : 'Last Month'}
+                                </button>
+                            ))}
+                            <select
+                                value={clientFilter}
+                                onChange={(e) => setClientFilter(e.target.value)}
+                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #007bff', color: '#007bff', background: 'white', cursor: 'pointer' }}
+                            >
+                                <option value="all">All Clients</option>
+                                <option value="none">No Client</option>
+                                {clients.map((c, idx) => (
+                                    <option key={idx} value={c}>{c}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
                     {(() => {
                         const weeklyTarget = profile?.weeklyHoursTarget;
                         const targetHours = weeklyTarget ? (chartData.type === 'weekly' ? weeklyTarget : weeklyTarget / 7) : null;
-                        const isMonthlyChart = chartData.type === 'monthly';
                         const targetLinePosition = targetHours ? Math.min((targetHours / maxHours) * 120, 120) : null;
 
                         return (
@@ -1241,7 +1077,199 @@ function DashboardPage() {
                         )}
                     </div>
                 </div>
+            </div>
+        </Layout>
+    );
+}
 
+function SummaryPage() {
+    const { user, profile, logout, isSystemAdmin } = useAuth();
+    const [taskLogs, setTaskLogs] = React.useState([]);
+    const [message, setMessage] = React.useState(null);
+
+    // Edit state
+    const [editingId, setEditingId] = React.useState(null);
+    const [editDate, setEditDate] = React.useState('');
+    const [editStartTime, setEditStartTime] = React.useState('');
+    const [editEndTime, setEditEndTime] = React.useState('');
+    const [editClient, setEditClient] = React.useState('');
+    const [editDescription, setEditDescription] = React.useState('');
+    const [saving, setSaving] = React.useState(false);
+
+    // Date filter state
+    const [dateFilter, setDateFilter] = React.useState('week');
+    const [clientFilter, setClientFilter] = React.useState('all');
+
+    const clients = React.useMemo(() => {
+        return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
+    }, [taskLogs]);
+
+    const fetchTaskLogs = async () => {
+        try {
+            const res = await fetch('/api/tasks/logs', {
+                headers: { 'Authorization': `Bearer ${user.token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                const sorted = data.taskLogs.sort((a, b) => {
+                    if (a.date !== b.date) return b.date.localeCompare(a.date);
+                    return a.startTime.localeCompare(b.startTime);
+                });
+                setTaskLogs(sorted);
+            }
+        } catch (err) {
+            console.error('Failed to fetch task logs:', err);
+        }
+    };
+
+    React.useEffect(() => {
+        if (user?.token) fetchTaskLogs();
+    }, [user]);
+
+    const getDateFilteredTaskLogs = () => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+
+        if (dateFilter === 'today') {
+            return taskLogs.filter(log => log.date === todayStr);
+        } else if (dateFilter === 'week') {
+            const dayOfWeek = today.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() + mondayOffset);
+            const mondayStr = monday.toISOString().split('T')[0];
+            return taskLogs.filter(log => log.date >= mondayStr && log.date <= todayStr);
+        } else if (dateFilter === 'lastweek') {
+            const dayOfWeek = today.getDay();
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() + mondayOffset);
+            const lastMonday = new Date(thisMonday);
+            lastMonday.setDate(thisMonday.getDate() - 7);
+            const lastSunday = new Date(thisMonday);
+            lastSunday.setDate(thisMonday.getDate() - 1);
+            return taskLogs.filter(log => log.date >= lastMonday.toISOString().split('T')[0] && log.date <= lastSunday.toISOString().split('T')[0]);
+        } else if (dateFilter === 'lastmonth') {
+            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            return taskLogs.filter(log => log.date >= firstOfLastMonth.toISOString().split('T')[0] && log.date <= lastOfLastMonth.toISOString().split('T')[0]);
+        } else if (dateFilter === 'month') {
+            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            return taskLogs.filter(log => log.date >= firstOfMonth.toISOString().split('T')[0] && log.date <= todayStr);
+        }
+        return taskLogs;
+    };
+
+    const dateFilteredTaskLogs = getDateFilteredTaskLogs();
+    const visibleClients = [...new Set(dateFilteredTaskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
+
+    const getFilteredTaskLogs = () => {
+        let filtered = dateFilteredTaskLogs;
+        if (clientFilter === 'none') {
+            filtered = filtered.filter(log => !log.client);
+        } else if (clientFilter !== 'all') {
+            filtered = filtered.filter(log => log.client === clientFilter);
+        }
+        return filtered;
+    };
+
+    const filteredTaskLogs = getFilteredTaskLogs();
+
+    const getTotalDuration = () => {
+        let totalMinutes = 0;
+        filteredTaskLogs.forEach(log => {
+            if (log.startTime && log.endTime) {
+                const [startH, startM] = log.startTime.split(':').map(Number);
+                const [endH, endM] = log.endTime.split(':').map(Number);
+                let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                if (mins < 0) mins += 24 * 60;
+                totalMinutes += mins;
+            }
+        });
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (totalMinutes === 0) return '0h';
+        if (hours === 0) return `${minutes}m`;
+        if (minutes === 0) return `${hours}h`;
+        return `${hours}h ${minutes}m`;
+    };
+
+    const startEdit = (log) => {
+        setEditingId(log.id);
+        setEditDate(log.date);
+        setEditStartTime(log.startTime);
+        setEditEndTime(log.endTime);
+        setEditClient(log.client || '');
+        setEditDescription(log.description);
+    };
+
+    const cancelEdit = () => {
+        setEditingId(null);
+    };
+
+    const handleSaveEdit = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/tasks/${editingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token}`
+                },
+                body: JSON.stringify({
+                    date: editDate,
+                    startTime: editStartTime,
+                    endTime: editEndTime,
+                    client: editClient || null,
+                    description: editDescription
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setEditingId(null);
+                fetchTaskLogs();
+                setMessage({ type: 'success', text: 'Task updated successfully!' });
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Failed to update task' });
+            }
+        } catch (err) {
+            setMessage({ type: 'error', text: 'An error occurred' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this task?')) return;
+        try {
+            const res = await fetch(`/api/tasks/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${user.token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchTaskLogs();
+                setMessage({ type: 'success', text: 'Task deleted successfully!' });
+            } else {
+                setMessage({ type: 'error', text: data.error || 'Failed to delete task' });
+            }
+        } catch (err) {
+            setMessage({ type: 'error', text: 'An error occurred' });
+        }
+    };
+
+    if (!profile) {
+        return (
+            <Layout title="Summary" showNav onLogout={logout}>
+                <p>Loading...</p>
+            </Layout>
+        );
+    }
+
+    return (
+        <Layout showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
+            <div className="dashboard">
                 <div className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -1250,42 +1278,17 @@ function DashboardPage() {
                                 Total: <strong>{getTotalDuration()}</strong>
                             </span>
                         </div>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button
-                                className={dateFilter === 'today' ? 'btn-small' : 'btn-small btn-outline'}
-                                onClick={() => setDateFilter('today')}
-                                style={dateFilter !== 'today' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                            >
-                                Today
-                            </button>
-                            <button
-                                className={dateFilter === 'week' ? 'btn-small' : 'btn-small btn-outline'}
-                                onClick={() => setDateFilter('week')}
-                                style={dateFilter !== 'week' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                            >
-                                This Week
-                            </button>
-                            <button
-                                className={dateFilter === 'lastweek' ? 'btn-small' : 'btn-small btn-outline'}
-                                onClick={() => setDateFilter('lastweek')}
-                                style={dateFilter !== 'lastweek' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                            >
-                                Last Week
-                            </button>
-                            <button
-                                className={dateFilter === 'lastmonth' ? 'btn-small' : 'btn-small btn-outline'}
-                                onClick={() => setDateFilter('lastmonth')}
-                                style={dateFilter !== 'lastmonth' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                            >
-                                Last Month
-                            </button>
-                            <button
-                                className={dateFilter === 'month' ? 'btn-small' : 'btn-small btn-outline'}
-                                onClick={() => setDateFilter('month')}
-                                style={dateFilter !== 'month' ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                            >
-                                This Month
-                            </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {['today', 'week', 'lastweek', 'lastmonth', 'month'].map(filter => (
+                                <button
+                                    key={filter}
+                                    className={dateFilter === filter ? 'btn-small' : 'btn-small btn-outline'}
+                                    onClick={() => setDateFilter(filter)}
+                                    style={dateFilter !== filter ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
+                                >
+                                    {filter === 'today' ? 'Today' : filter === 'week' ? 'This Week' : filter === 'lastweek' ? 'Last Week' : filter === 'lastmonth' ? 'Last Month' : 'This Month'}
+                                </button>
+                            ))}
                             <select
                                 value={clientFilter}
                                 onChange={(e) => setClientFilter(e.target.value)}
@@ -1297,33 +1300,9 @@ function DashboardPage() {
                                     <option key={idx} value={c}>{c}</option>
                                 ))}
                             </select>
-                            <select
-                                value={exportMonth}
-                                onChange={(e) => setExportMonth(e.target.value)}
-                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #28a745', color: '#28a745', background: 'white', cursor: 'pointer' }}
-                            >
-                                {availableMonths.map((m) => (
-                                    <option key={m.value} value={m.value}>{m.label}</option>
-                                ))}
-                            </select>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.85rem', color: '#28a745', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={consolidate}
-                                    onChange={(e) => setConsolidate(e.target.checked)}
-                                />
-                                Consolidate
-                            </label>
-                            <button
-                                className="btn-small"
-                                onClick={exportToCsv}
-                                style={{ background: '#28a745' }}
-                                title="Export to CSV"
-                            >
-                                Export CSV
-                            </button>
                         </div>
                     </div>
+                    <Message message={message} />
                     {filteredTaskLogs.length === 0 ? (
                         <p>No task logs for this period.</p>
                     ) : (
@@ -1342,64 +1321,18 @@ function DashboardPage() {
                                 {filteredTaskLogs.map((log) => (
                                     editingId === log.id ? (
                                         <tr key={log.id}>
+                                            <td><input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} max={new Date().toISOString().split('T')[0]} style={{ width: '130px' }} /></td>
                                             <td>
-                                                <input
-                                                    type="date"
-                                                    value={editDate}
-                                                    onChange={(e) => setEditDate(e.target.value)}
-                                                    max={new Date().toISOString().split('T')[0]}
-                                                    style={{ width: '130px' }}
-                                                />
-                                            </td>
-                                            <td>
-                                                <input
-                                                    type="time"
-                                                    value={editStartTime}
-                                                    onChange={(e) => setEditStartTime(e.target.value)}
-                                                    style={{ width: '90px' }}
-                                                />
+                                                <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} style={{ width: '90px' }} />
                                                 {' - '}
-                                                <input
-                                                    type="time"
-                                                    value={editEndTime}
-                                                    onChange={(e) => setEditEndTime(e.target.value)}
-                                                    style={{ width: '90px' }}
-                                                />
+                                                <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} style={{ width: '90px' }} />
                                             </td>
                                             <td>{calculateDuration(editStartTime, editEndTime)}</td>
+                                            <td><input type="text" value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" style={{ width: '100px' }} /></td>
+                                            <td><input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Description" style={{ width: '100%' }} /></td>
                                             <td>
-                                                <input
-                                                    type="text"
-                                                    value={editClient}
-                                                    onChange={(e) => setEditClient(e.target.value)}
-                                                    placeholder="Client"
-                                                    style={{ width: '100px' }}
-                                                />
-                                            </td>
-                                            <td>
-                                                <input
-                                                    type="text"
-                                                    value={editDescription}
-                                                    onChange={(e) => setEditDescription(e.target.value)}
-                                                    placeholder="Description"
-                                                    style={{ width: '100%' }}
-                                                />
-                                            </td>
-                                            <td>
-                                                <button
-                                                    className="btn-small"
-                                                    onClick={handleSaveEdit}
-                                                    disabled={saving}
-                                                >
-                                                    {saving ? 'Saving...' : 'Save'}
-                                                </button>
-                                                <button
-                                                    className="btn-small"
-                                                    onClick={cancelEdit}
-                                                    disabled={saving}
-                                                >
-                                                    Cancel
-                                                </button>
+                                                <button className="btn-small" onClick={handleSaveEdit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                                                <button className="btn-small" onClick={cancelEdit} disabled={saving}>Cancel</button>
                                             </td>
                                         </tr>
                                     ) : (
@@ -1410,20 +1343,8 @@ function DashboardPage() {
                                             <td>{log.client || '-'}</td>
                                             <td>{log.description}</td>
                                             <td>
-                                                <span
-                                                    onClick={() => startEdit(log)}
-                                                    title="Edit"
-                                                    style={{ cursor: 'pointer', marginRight: '0.5rem', fontSize: '1.1rem' }}
-                                                >
-                                                    ✏️
-                                                </span>
-                                                <span
-                                                    onClick={() => handleDelete(log.id)}
-                                                    title="Delete"
-                                                    style={{ cursor: 'pointer', fontSize: '1.1rem' }}
-                                                >
-                                                    🗑️
-                                                </span>
+                                                <span onClick={() => startEdit(log)} title="Edit" style={{ cursor: 'pointer', marginRight: '0.5rem', fontSize: '1.1rem' }}>✏️</span>
+                                                <span onClick={() => handleDelete(log.id)} title="Delete" style={{ cursor: 'pointer', fontSize: '1.1rem' }}>🗑️</span>
                                             </td>
                                         </tr>
                                     )
@@ -1432,16 +1353,190 @@ function DashboardPage() {
                         </table>
                     )}
                 </div>
+            </div>
+        </Layout>
+    );
+}
 
-                {isCompanyAdmin && !isSystemAdmin && (
-                    <div className="card">
-                        <h2>Company Administration</h2>
-                        <p>You are a company administrator.</p>
-                        <button onClick={() => history.push(`/admin/companies/${profile.companyId}`)}>
-                            Manage Company Users
+function ExportPage() {
+    const { user, profile, logout, isSystemAdmin } = useAuth();
+    const [taskLogs, setTaskLogs] = React.useState([]);
+    const [message, setMessage] = React.useState(null);
+
+    const [clientFilter, setClientFilter] = React.useState('all');
+    const [exportMonth, setExportMonth] = React.useState(() => {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    });
+    const [consolidate, setConsolidate] = React.useState(false);
+
+    const clients = React.useMemo(() => {
+        return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
+    }, [taskLogs]);
+
+    const availableMonths = React.useMemo(() => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const label = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            months.push({ value, label });
+        }
+        return months;
+    }, []);
+
+    React.useEffect(() => {
+        const fetchTaskLogs = async () => {
+            try {
+                const res = await fetch('/api/tasks/logs', {
+                    headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setTaskLogs(data.taskLogs);
+                }
+            } catch (err) {
+                console.error('Failed to fetch task logs:', err);
+            }
+        };
+        if (user?.token) fetchTaskLogs();
+    }, [user]);
+
+    const exportToCsv = () => {
+        const [year, month] = exportMonth.split('-').map(Number);
+        const firstOfMonth = new Date(year, month - 1, 1);
+        const lastOfMonth = new Date(year, month, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const endDate = lastOfMonth > today ? today : lastOfMonth;
+
+        let logsToExport = taskLogs.filter(log => log.date >= firstOfMonth.toISOString().split('T')[0] && log.date <= endDate.toISOString().split('T')[0]);
+
+        if (clientFilter === 'none') {
+            logsToExport = logsToExport.filter(log => !log.client);
+        } else if (clientFilter !== 'all') {
+            logsToExport = logsToExport.filter(log => log.client === clientFilter);
+        }
+
+        if (logsToExport.length === 0) {
+            setMessage({ type: 'error', text: 'No task logs to export for the selected month' });
+            return;
+        }
+
+        let csvContent;
+        if (consolidate) {
+            const headers = ['Date', 'Hours', 'Tasks'];
+            const groupedByDate = {};
+            logsToExport.forEach(log => {
+                if (!groupedByDate[log.date]) groupedByDate[log.date] = [];
+                groupedByDate[log.date].push(log);
+            });
+
+            const rows = Object.keys(groupedByDate).sort().map(date => {
+                const logs = groupedByDate[date];
+                let totalMinutes = 0;
+                logs.forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+                const hours = (totalMinutes / 60).toFixed(2);
+                const tasks = logs.map(l => l.description).join(', ');
+                const dateObj = new Date(date + 'T00:00:00');
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const monthName = dateObj.toLocaleString('default', { month: 'short' });
+                const yr = String(dateObj.getFullYear()).slice(-2);
+                return [`${day} ${monthName} ${yr}`, hours, `"${tasks.replace(/"/g, '""')}"`];
+            });
+            csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+        } else {
+            const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
+            const rows = logsToExport.map(log => {
+                const duration = calculateDuration(log.startTime, log.endTime);
+                return [log.date, formatTimeNoSeconds(log.startTime), formatTimeNoSeconds(log.endTime), duration, log.client || '', `"${(log.description || '').replace(/"/g, '""')}"`];
+            });
+            csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+        }
+
+        const clientId = clientFilter !== 'all' ? (clientFilter === 'none' ? 'NoClient' : clientFilter) : 'All';
+        const endDateFormatted = endDate.toISOString().split('T')[0].replace(/-/g, '');
+        const detailSuffix = consolidate ? '' : '-detail';
+        const filename = `${clientId}-${endDateFormatted}${detailSuffix}.csv`;
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setMessage({ type: 'success', text: `Exported ${logsToExport.length} records to ${filename}` });
+    };
+
+    if (!profile) {
+        return (
+            <Layout title="Export" showNav onLogout={logout}>
+                <p>Loading...</p>
+            </Layout>
+        );
+    }
+
+    return (
+        <Layout showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
+            <div className="dashboard">
+                <div className="card">
+                    <h2>Export Task Logs</h2>
+                    <Message message={message} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="form-group">
+                            <label>Month</label>
+                            <select
+                                value={exportMonth}
+                                onChange={(e) => setExportMonth(e.target.value)}
+                                style={{ padding: '0.5rem', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ced4da' }}
+                            >
+                                {availableMonths.map((m) => (
+                                    <option key={m.value} value={m.value}>{m.label}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label>Client</label>
+                            <select
+                                value={clientFilter}
+                                onChange={(e) => setClientFilter(e.target.value)}
+                                style={{ padding: '0.5rem', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ced4da' }}
+                            >
+                                <option value="all">All Clients</option>
+                                <option value="none">No Client</option>
+                                {clients.map((c, idx) => (
+                                    <option key={idx} value={c}>{c}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={consolidate}
+                                    onChange={(e) => setConsolidate(e.target.checked)}
+                                />
+                                Consolidate (group by date)
+                            </label>
+                        </div>
+                        <button onClick={exportToCsv} style={{ background: '#28a745' }}>
+                            Export CSV
                         </button>
                     </div>
-                )}
+                </div>
             </div>
         </Layout>
     );
@@ -1449,17 +1544,44 @@ function DashboardPage() {
 
 function ProfilePage() {
     const { user, profile, logout, isSystemAdmin, refreshProfile } = useAuth();
-    const [weeklyTarget, setWeeklyTarget] = React.useState('');
-    const [defaultStartTime, setDefaultStartTime] = React.useState('');
+    const [weeklyTarget, setWeeklyTarget] = React.useState('37.5');
+    const [defaultStartTime, setDefaultStartTime] = React.useState('09:00');
+    const [hoursPerDay, setHoursPerDay] = React.useState('7.5');
+    const [workingDays, setWorkingDays] = React.useState({
+        Mon: true, Tue: true, Wed: true, Thu: true, Fri: true, Sat: false, Sun: false
+    });
+    const [bankHolidayRegion, setBankHolidayRegion] = React.useState('');
     const [saving, setSaving] = React.useState(false);
     const [message, setMessage] = React.useState(null);
 
     React.useEffect(() => {
         if (profile?.weeklyHoursTarget != null) {
             setWeeklyTarget(profile.weeklyHoursTarget.toString());
+        } else {
+            setWeeklyTarget('37.5');
         }
         if (profile?.defaultStartTime) {
             setDefaultStartTime(profile.defaultStartTime);
+        } else {
+            setDefaultStartTime('09:00');
+        }
+        if (profile?.hoursPerDay != null) {
+            setHoursPerDay(profile.hoursPerDay.toString());
+        }
+        if (profile?.workingDays) {
+            const days = profile.workingDays.split(',');
+            setWorkingDays({
+                Mon: days.includes('Mon'),
+                Tue: days.includes('Tue'),
+                Wed: days.includes('Wed'),
+                Thu: days.includes('Thu'),
+                Fri: days.includes('Fri'),
+                Sat: days.includes('Sat'),
+                Sun: days.includes('Sun')
+            });
+        }
+        if (profile?.bankHolidayRegion !== undefined) {
+            setBankHolidayRegion(profile.bankHolidayRegion || '');
         }
     }, [profile]);
 
@@ -1477,6 +1599,18 @@ function ProfilePage() {
                 return;
             }
 
+            const hoursPerDayValue = hoursPerDay.trim() === '' ? null : parseFloat(hoursPerDay);
+            if (hoursPerDayValue !== null && (isNaN(hoursPerDayValue) || hoursPerDayValue < 0 || hoursPerDayValue > 24)) {
+                setMessage({ type: 'error', text: 'Hours per day must be between 0 and 24' });
+                setSaving(false);
+                return;
+            }
+
+            const workingDaysStr = Object.entries(workingDays)
+                .filter(([_, checked]) => checked)
+                .map(([day]) => day)
+                .join(',');
+
             const res = await fetch('/api/users/settings', {
                 method: 'PUT',
                 headers: {
@@ -1485,7 +1619,10 @@ function ProfilePage() {
                 },
                 body: JSON.stringify({
                     weeklyHoursTarget: targetValue,
-                    defaultStartTime: defaultStartTime || null
+                    defaultStartTime: defaultStartTime || null,
+                    hoursPerDay: hoursPerDayValue,
+                    workingDays: workingDaysStr || null,
+                    bankHolidayRegion: bankHolidayRegion || null
                 })
             });
 
@@ -1539,6 +1676,46 @@ function ProfilePage() {
                                 onChange={(e) => setDefaultStartTime(e.target.value)}
                                 style={{ maxWidth: '150px' }}
                             />
+                        </div>
+                        <div className="form-group">
+                            <label>Hours per day quota</label>
+                            <input
+                                type="number"
+                                value={hoursPerDay}
+                                onChange={(e) => setHoursPerDay(e.target.value)}
+                                placeholder="e.g. 7.5"
+                                min="0"
+                                max="24"
+                                step="0.5"
+                                style={{ maxWidth: '150px' }}
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label>Working days</label>
+                            <div className="checkbox-group">
+                                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                                    <label key={day} className="checkbox-label">
+                                        <input
+                                            type="checkbox"
+                                            checked={workingDays[day]}
+                                            onChange={(e) => setWorkingDays({...workingDays, [day]: e.target.checked})}
+                                        />
+                                        {day}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label>Bank holiday region</label>
+                            <select
+                                value={bankHolidayRegion}
+                                onChange={(e) => setBankHolidayRegion(e.target.value)}
+                                style={{ maxWidth: '200px' }}
+                            >
+                                <option value="">None</option>
+                                <option value="UK">UK Bank Holidays</option>
+                                <option value="US">US Federal Holidays</option>
+                            </select>
                         </div>
                         <button type="submit" disabled={saving}>
                             {saving ? 'Saving...' : 'Save Settings'}
@@ -2184,6 +2361,15 @@ function App() {
                     {/* Protected routes */}
                     <ProtectedRoute path="/dashboard">
                         <DashboardPage />
+                    </ProtectedRoute>
+                    <ProtectedRoute path="/charts">
+                        <ChartsPage />
+                    </ProtectedRoute>
+                    <ProtectedRoute path="/summary">
+                        <SummaryPage />
+                    </ProtectedRoute>
+                    <ProtectedRoute path="/export">
+                        <ExportPage />
                     </ProtectedRoute>
                     <ProtectedRoute path="/profile">
                         <ProfilePage />

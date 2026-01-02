@@ -24,7 +24,10 @@ public static class GetProfile
         bool IsCompanyAdmin,
         bool IsSystemAdmin,
         decimal? WeeklyHoursTarget,
-        string? DefaultStartTime);
+        string? DefaultStartTime,
+        string WorkingDays,
+        decimal HoursPerDay,
+        string? BankHolidayRegion);
 
     public class Handler : IRequestHandler<Query, Response?>
     {
@@ -61,7 +64,10 @@ public static class GetProfile
                 user.IsCompanyAdmin,
                 user.IsSystemAdmin,
                 user.WeeklyHoursTarget,
-                user.DefaultStartTime?.ToString("HH:mm"));
+                user.DefaultStartTime?.ToString("HH:mm"),
+                user.WorkingDays,
+                user.HoursPerDay,
+                user.BankHolidayRegion);
         }
     }
 }
