@@ -10,23 +10,23 @@
 
         /* Layout */
         .layout { min-height: 100vh; }
-        .container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 800px; margin: 2rem auto; }
-        .container h1 { text-align: center; margin-bottom: 1.5rem; color: #333; }
+        .container { background: white; padding: 1rem; border-radius: 0; box-shadow: none; width: 100%; max-width: 100%; margin: 0; }
+        .container h1 { text-align: center; margin-bottom: 1rem; color: #333; font-size: 1.25rem; }
 
         /* Navbar */
-        .navbar { background: #007bff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
-        .nav-brand { color: white; font-size: 1.5rem; font-weight: bold; cursor: pointer; }
-        .nav-links { display: flex; gap: 1rem; }
-        .nav-links a { color: white; text-decoration: none; cursor: pointer; padding: 0.5rem 1rem; border-radius: 4px; }
+        .navbar { background: #007bff; padding: 0.5rem 0.75rem; display: flex; justify-content: space-between; align-items: center; }
+        .nav-brand { color: white; font-size: 1rem; font-weight: bold; cursor: pointer; display: none; }
+        .nav-links { display: flex; gap: 0.25rem; flex-wrap: wrap; justify-content: center; width: 100%; }
+        .nav-links a { color: white; text-decoration: none; cursor: pointer; padding: 0.4rem 0.6rem; border-radius: 4px; font-size: 0.85rem; }
         .nav-links a:hover { background: rgba(255,255,255,0.2); }
         .nav-links a.logout { background: rgba(255,255,255,0.1); }
 
         /* Forms */
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; margin-bottom: 0.5rem; color: #555; font-weight: 500; }
-        input, select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+        .form-group { margin-bottom: 0.75rem; }
+        label { display: block; margin-bottom: 0.25rem; color: #555; font-weight: 500; font-size: 0.85rem; }
+        input, select { width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; }
         input:focus, select:focus { outline: none; border-color: #007bff; }
-        button { padding: 0.75rem 1.5rem; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; margin-top: 0.5rem; }
+        button { padding: 0.5rem 1rem; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 0.9rem; cursor: pointer; margin-top: 0.25rem; }
         button:hover { background: #0056b3; }
         button:disabled { background: #ccc; cursor: not-allowed; }
 
@@ -36,59 +36,64 @@
         .links a:hover { text-decoration: underline; }
 
         /* Messages */
-        .message { padding: 0.75rem; border-radius: 4px; margin-bottom: 1rem; text-align: center; }
+        .message { padding: 0.5rem; border-radius: 4px; margin-bottom: 0.5rem; text-align: center; font-size: 0.85rem; }
         .message.success { background: #d4edda; color: #155724; }
         .message.error { background: #f8d7da; color: #721c24; }
 
         /* Cards */
-        .card { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; }
-        .card h2 { margin-bottom: 1rem; color: #333; font-size: 1.25rem; }
-        .card p { margin-bottom: 0.5rem; color: #555; }
+        .card { background: #f8f9fa; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.75rem; }
+        .card h2 { margin-bottom: 0.5rem; color: #333; font-size: 1rem; }
+        .card p { margin-bottom: 0.25rem; color: #555; font-size: 0.9rem; }
 
         /* Dashboard */
-        .dashboard { display: grid; gap: 1rem; }
-        .button-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .dashboard { display: grid; gap: 0.75rem; }
+        .button-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
 
         /* Tables */
-        .table-container { overflow-x: auto; }
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-        .data-table th, .data-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #ddd; }
-        .data-table th { background: #f8f9fa; font-weight: 600; }
+        .table-container { overflow-x: auto; margin: 0 -1rem; padding: 0 1rem; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; font-size: 0.85rem; }
+        .data-table th, .data-table td { padding: 3px 4px; text-align: left; border-bottom: 1px solid #ddd; }
+        .data-table th { background: #f8f9fa; font-weight: 600; white-space: nowrap; }
         .data-table tr:hover { background: #f8f9fa; }
-        .info-table { width: 100%; }
-        .info-table td { padding: 0.5rem 0; }
-        .info-table td:first-child { width: 150px; }
+        .info-table { width: 100%; font-size: 0.9rem; }
+        .info-table td { padding: 0.25rem 0; }
+        .info-table td:first-child { width: 100px; }
 
         /* Buttons */
-        .btn-small { padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0 0.25rem; }
+        .btn-small { padding: 0.3rem 0.5rem; font-size: 0.75rem; margin: 0 0.15rem; }
         .btn-danger { background: #dc3545; }
         .btn-danger:hover { background: #c82333; }
 
         /* Actions bar */
-        .actions-bar { margin-bottom: 1rem; display: flex; gap: 0.5rem; }
+        .actions-bar { margin-bottom: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 
         /* Inline form */
-        .inline-form { background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; }
+        .inline-form { background: #f8f9fa; padding: 0.75rem; border-radius: 6px; margin-bottom: 0.75rem; }
 
         /* Profile */
-        .profile-details { display: grid; gap: 1rem; }
+        .profile-details { display: grid; gap: 0.75rem; }
 
         /* Checkbox group */
-        .checkbox-group { display: flex; flex-wrap: wrap; gap: 12px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; font-size: 0.85rem; }
         .checkbox-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
         .checkbox-label input[type="checkbox"] { width: auto; }
 
         /* Notice banner */
-        .notice-banner { background: #ffc107; color: #212529; padding: 12px 16px; text-align: center; font-size: 14px; border-radius: 4px; margin-bottom: 16px; }
+        .notice-banner { background: #ffc107; color: #212529; padding: 8px 12px; text-align: center; font-size: 0.85rem; border-radius: 4px; margin-bottom: 0.75rem; }
         .notice-banner.weekend { background: #17a2b8; color: white; }
         .notice-banner.holiday { background: #ffc107; color: #212529; }
 
-        /* Responsive */
+        /* Compact layout for WebView */
+        .layout { background: white; }
+        body { background: white; font-size: 14px; }
+
+        /* Responsive - hide brand since WebView has header */
         @media (max-width: 600px) {
-            .container { margin: 1rem; padding: 1rem; }
-            .navbar { flex-direction: column; gap: 1rem; }
-            .nav-links { flex-wrap: wrap; justify-content: center; }
+            .nav-brand { display: none; }
+            .nav-links { width: 100%; justify-content: space-around; }
             .button-group { flex-direction: column; }
+            .button-group button { width: 100%; }
+            .card { background: transparent; padding: 0; border-radius: 0; margin-bottom: 0.5rem; }
         }
     </style>
 </head>
@@ -104,10 +109,13 @@
     <script src="https://unpkg.com/react-router@5/umd/react-router.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-router-dom@5/umd/react-router-dom.min.js" crossorigin></script>
 
+    <!-- JSZip for ZIP exports -->
+    <script src="https://unpkg.com/jszip@3/dist/jszip.min.js"></script>
+
     <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <!-- App Bundle -->
-    <script type="text/babel" data-presets="react" src="/js/app.bundle.jsx?v=20260101c"></script>
+    <script type="text/babel" data-presets="react" src="/js/app.bundle.jsx?v=20260104u"></script>
 </body>
 </html>

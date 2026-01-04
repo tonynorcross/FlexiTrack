@@ -170,6 +170,12 @@ function Layout({ children, title, showNav = false, onLogout, isAdmin = false, u
                     <div className="nav-links">
                         {isAdmin && <a onClick={() => history.push('/admin/users')}>Users</a>}
                         {isAdmin && <a onClick={() => history.push('/admin/companies')}>Companies</a>}
+                        <a onClick={() => history.push('/dashboard')} title="Home">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                            </svg>
+                        </a>
                         <a onClick={() => history.push('/charts')} title="Charts">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign: 'middle'}}>
                                 <line x1="18" y1="20" x2="18" y2="10"></line>
@@ -211,7 +217,6 @@ function Layout({ children, title, showNav = false, onLogout, isAdmin = false, u
                 </nav>
             )}
             <div className="container">
-                {showNav && <NoticeBanner />}
                 {title && <h1>{title}</h1>}
                 {children}
             </div>
@@ -523,6 +528,42 @@ function DashboardPage() {
     const [showClientSuggestions, setShowClientSuggestions] = React.useState(false);
     const [filteredClients, setFilteredClients] = React.useState([]);
 
+    // Notice state (weekend/holiday warning)
+    const [notice, setNotice] = React.useState(null);
+
+    const checkNotice = async () => {
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            setNotice({ type: 'weekend', message: 'Weekend' });
+            return;
+        }
+
+        if (profile?.bankHolidayRegion && user?.token) {
+            try {
+                const res = await fetch(`/api/users/bank-holiday-check?date=${today.toISOString().split('T')[0]}`, {
+                    headers: { 'Authorization': `Bearer ${user.token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.isHoliday) {
+                        setNotice({ type: 'holiday', message: `Bank Holiday - ${data.holidayName}` });
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to check bank holiday');
+            }
+        }
+
+        setNotice(null);
+    };
+
+    React.useEffect(() => {
+        checkNotice();
+    }, [profile]);
+
     // Derive unique clients from task logs, sorted alphabetically
     const clients = React.useMemo(() => {
         return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
@@ -692,7 +733,14 @@ function DashboardPage() {
             <div className="dashboard">
 
                 <div className="card">
-                    <h2>Log Task</h2>
+                    <h2 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        Log Task
+                        {notice && (
+                            <span style={{ fontSize: '0.7rem', fontWeight: 'normal', color: '#999' }}>
+                                {notice.message}
+                            </span>
+                        )}
+                    </h2>
                     <Message message={message} />
                     <form onSubmit={handleLogTask}>
                         <div className="form-group">
@@ -832,7 +880,7 @@ function ChartsPage() {
                     headers: { 'Authorization': `Bearer ${user.token}` }
                 });
                 const data = await res.json();
-                if (data.success) {
+                if (data.taskLogs) {
                     setTaskLogs(data.taskLogs);
                 }
             } catch (err) {
@@ -841,6 +889,24 @@ function ChartsPage() {
         };
         if (user?.token) fetchTaskLogs();
     }, [user]);
+
+    // Parse working days from profile (e.g., "Mon,Tue,Wed,Thu,Fri")
+    const workingDays = React.useMemo(() => {
+        if (!profile?.workingDays) return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        return profile.workingDays.split(',');
+    }, [profile?.workingDays]);
+
+    const availableMonths = React.useMemo(() => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const label = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            months.push({ value, label });
+        }
+        return months;
+    }, []);
 
     const getChartData = () => {
         const today = new Date();
@@ -860,6 +926,10 @@ function ChartsPage() {
         const getWeekData = (mondayDate) => {
             const summary = [];
             for (let i = 0; i < 7; i++) {
+                const dayName = days[i];
+                // Skip non-working days
+                if (!workingDays.includes(dayName)) continue;
+
                 const date = new Date(mondayDate);
                 date.setDate(mondayDate.getDate() + i);
                 const dateStr = date.toISOString().split('T')[0];
@@ -876,7 +946,7 @@ function ChartsPage() {
                 });
 
                 summary.push({
-                    day: days[i],
+                    day: dayName,
                     date: dateStr,
                     minutes: totalMinutes,
                     hours: (totalMinutes / 60).toFixed(1),
@@ -960,6 +1030,40 @@ function ChartsPage() {
             }
 
             return { title: monthName, data: monthlySummary, type: 'monthly' };
+        } else if (dateFilter.match(/^\d{4}-\d{2}$/)) {
+            // Month filter in YYYY-MM format
+            const [year, month] = dateFilter.split('-').map(Number);
+            const firstOfMonth = new Date(year, month - 1, 1);
+            const lastOfMonth = new Date(year, month, 0);
+            const daysInMonth = lastOfMonth.getDate();
+            const monthName = firstOfMonth.toLocaleString('default', { month: 'short', year: 'numeric' });
+            const monthlySummary = [];
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month - 1, d);
+                const dateStr = date.toISOString().split('T')[0];
+
+                let totalMinutes = 0;
+                clientFilteredLogs.filter(log => log.date === dateStr).forEach(log => {
+                    if (log.startTime && log.endTime) {
+                        const [startH, startM] = log.startTime.split(':').map(Number);
+                        const [endH, endM] = log.endTime.split(':').map(Number);
+                        let mins = (endH * 60 + endM) - (startH * 60 + startM);
+                        if (mins < 0) mins += 24 * 60;
+                        totalMinutes += mins;
+                    }
+                });
+
+                monthlySummary.push({
+                    day: d.toString(),
+                    date: dateStr,
+                    minutes: totalMinutes,
+                    hours: (totalMinutes / 60).toFixed(1),
+                    isToday: dateStr === todayStr
+                });
+            }
+
+            return { title: monthName, data: monthlySummary, type: 'monthly' };
         }
 
         const thisMonday = new Date(today);
@@ -981,36 +1085,38 @@ function ChartsPage() {
     return (
         <Layout showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
             <div className="dashboard">
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <h2 style={{ margin: 0 }}>{chartData.title}</h2>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {['week', 'lastweek', 'month', 'lastmonth'].map(filter => (
-                                <button
-                                    key={filter}
-                                    className={dateFilter === filter ? 'btn-small' : 'btn-small btn-outline'}
-                                    onClick={() => setDateFilter(filter)}
-                                    style={dateFilter !== filter ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                                >
-                                    {filter === 'week' ? 'This Week' : filter === 'lastweek' ? 'Last Week' : filter === 'month' ? 'This Month' : 'Last Month'}
-                                </button>
+                <h2 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Charts</h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Period</label>
+                        <select
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                        >
+                            <option value="week">This Week</option>
+                            <option value="lastweek">Last Week</option>
+                            {availableMonths.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
                             ))}
-                            <select
-                                value={clientFilter}
-                                onChange={(e) => setClientFilter(e.target.value)}
-                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #007bff', color: '#007bff', background: 'white', cursor: 'pointer' }}
-                            >
-                                <option value="all">All Clients</option>
-                                <option value="none">No Client</option>
-                                {clients.map((c, idx) => (
-                                    <option key={idx} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
+                        </select>
                     </div>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Client</label>
+                        <select
+                            value={clientFilter}
+                            onChange={(e) => setClientFilter(e.target.value)}
+                        >
+                            <option value="all">All Clients</option>
+                            <option value="none">No Client</option>
+                            {clients.map((c, idx) => (
+                                <option key={idx} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
                     {(() => {
-                        const weeklyTarget = profile?.weeklyHoursTarget;
-                        const targetHours = weeklyTarget ? (chartData.type === 'weekly' ? weeklyTarget : weeklyTarget / 7) : null;
+                        const hoursPerDay = profile?.hoursPerDay;
+                        const targetHours = hoursPerDay ? hoursPerDay : null;
                         const targetLinePosition = targetHours ? Math.min((targetHours / maxHours) * 120, 120) : null;
 
                         return (
@@ -1068,14 +1174,13 @@ function ChartsPage() {
                             </div>
                         );
                     })()}
-                    <div style={{ textAlign: 'center', marginTop: '0.75rem', color: '#666', fontSize: '0.9rem' }}>
-                        Total: <strong>{(chartData.data.reduce((sum, d) => sum + d.minutes, 0) / 60).toFixed(1)}h</strong>
-                        {profile?.weeklyHoursTarget && (
-                            <span style={{ marginLeft: '1rem', color: '#dc3545' }}>
-                                Target: <strong>{profile.weeklyHoursTarget}h/week</strong>
-                            </span>
-                        )}
-                    </div>
+                <div style={{ textAlign: 'center', marginTop: '0.75rem', color: '#666', fontSize: '0.9rem' }}>
+                    Total: <strong>{(chartData.data.reduce((sum, d) => sum + d.minutes, 0) / 60).toFixed(1)}h</strong>
+                    {profile?.weeklyHoursTarget && (
+                        <span style={{ marginLeft: '1rem', color: '#dc3545' }}>
+                            Target: <strong>{profile.weeklyHoursTarget}h/week</strong>
+                        </span>
+                    )}
                 </div>
             </div>
         </Layout>
@@ -1100,6 +1205,21 @@ function SummaryPage() {
     const [dateFilter, setDateFilter] = React.useState('week');
     const [clientFilter, setClientFilter] = React.useState('all');
 
+    // Modal state for full description
+    const [modalDescription, setModalDescription] = React.useState(null);
+
+    const availableMonths = React.useMemo(() => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+            const label = date.toLocaleString('default', { month: 'short', year: 'numeric' });
+            months.push({ value, label });
+        }
+        return months;
+    }, []);
+
     const clients = React.useMemo(() => {
         return [...new Set(taskLogs.map(log => log.client).filter(c => c))].sort((a, b) => a.localeCompare(b));
     }, [taskLogs]);
@@ -1110,7 +1230,7 @@ function SummaryPage() {
                 headers: { 'Authorization': `Bearer ${user.token}` }
             });
             const data = await res.json();
-            if (data.success) {
+            if (data.taskLogs) {
                 const sorted = data.taskLogs.sort((a, b) => {
                     if (a.date !== b.date) return b.date.localeCompare(a.date);
                     return a.startTime.localeCompare(b.startTime);
@@ -1150,13 +1270,13 @@ function SummaryPage() {
             const lastSunday = new Date(thisMonday);
             lastSunday.setDate(thisMonday.getDate() - 1);
             return taskLogs.filter(log => log.date >= lastMonday.toISOString().split('T')[0] && log.date <= lastSunday.toISOString().split('T')[0]);
-        } else if (dateFilter === 'lastmonth') {
-            const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-            const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
-            return taskLogs.filter(log => log.date >= firstOfLastMonth.toISOString().split('T')[0] && log.date <= lastOfLastMonth.toISOString().split('T')[0]);
-        } else if (dateFilter === 'month') {
-            const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            return taskLogs.filter(log => log.date >= firstOfMonth.toISOString().split('T')[0] && log.date <= todayStr);
+        } else if (dateFilter.match(/^\d{4}-\d{2}$/)) {
+            // Month filter in YYYY-MM format
+            const [year, month] = dateFilter.split('-').map(Number);
+            const firstOfMonth = new Date(year, month - 1, 1);
+            const lastOfMonth = new Date(year, month, 0);
+            const endDate = lastOfMonth > today ? today : lastOfMonth;
+            return taskLogs.filter(log => log.date >= firstOfMonth.toISOString().split('T')[0] && log.date <= endDate.toISOString().split('T')[0]);
         }
         return taskLogs;
     };
@@ -1270,90 +1390,146 @@ function SummaryPage() {
     return (
         <Layout showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
             <div className="dashboard">
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <h2 style={{ margin: 0 }}>Task Logs</h2>
-                            <span style={{ color: '#666', fontSize: '0.95rem' }}>
-                                Total: <strong>{getTotalDuration()}</strong>
-                            </span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                            {['today', 'week', 'lastweek', 'lastmonth', 'month'].map(filter => (
-                                <button
-                                    key={filter}
-                                    className={dateFilter === filter ? 'btn-small' : 'btn-small btn-outline'}
-                                    onClick={() => setDateFilter(filter)}
-                                    style={dateFilter !== filter ? { background: 'white', color: '#007bff', border: '1px solid #007bff' } : {}}
-                                >
-                                    {filter === 'today' ? 'Today' : filter === 'week' ? 'This Week' : filter === 'lastweek' ? 'Last Week' : filter === 'lastmonth' ? 'Last Month' : 'This Month'}
-                                </button>
+                <h2 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: 0, fontSize: '1rem', marginBottom: '0.5rem' }}>
+                    Logs
+                    <span style={{ fontSize: '0.7rem', fontWeight: 'normal', color: '#999' }}>
+                        {getTotalDuration()}
+                    </span>
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Period</label>
+                        <select
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                        >
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="lastweek">Last Week</option>
+                            {availableMonths.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
                             ))}
-                            <select
-                                value={clientFilter}
-                                onChange={(e) => setClientFilter(e.target.value)}
-                                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #007bff', color: '#007bff', background: 'white', cursor: 'pointer' }}
-                            >
-                                <option value="all">All Clients</option>
-                                <option value="none">No Client</option>
-                                {visibleClients.map((c, idx) => (
-                                    <option key={idx} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
+                        </select>
                     </div>
-                    <Message message={message} />
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <label>Client</label>
+                        <select
+                            value={clientFilter}
+                            onChange={(e) => setClientFilter(e.target.value)}
+                        >
+                            <option value="all">All Clients</option>
+                            <option value="none">No Client</option>
+                            {visibleClients.map((c, idx) => (
+                                <option key={idx} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <Message message={message} />
                     {filteredTaskLogs.length === 0 ? (
                         <p>No task logs for this period.</p>
                     ) : (
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Time</th>
-                                    <th>Duration</th>
-                                    <th>Client</th>
-                                    <th>Description</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredTaskLogs.map((log) => (
-                                    editingId === log.id ? (
-                                        <tr key={log.id}>
-                                            <td><input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} max={new Date().toISOString().split('T')[0]} style={{ width: '130px' }} /></td>
-                                            <td>
-                                                <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} style={{ width: '90px' }} />
-                                                {' - '}
-                                                <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} style={{ width: '90px' }} />
-                                            </td>
-                                            <td>{calculateDuration(editStartTime, editEndTime)}</td>
-                                            <td><input type="text" value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" style={{ width: '100px' }} /></td>
-                                            <td><input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Description" style={{ width: '100%' }} /></td>
-                                            <td>
-                                                <button className="btn-small" onClick={handleSaveEdit} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
-                                                <button className="btn-small" onClick={cancelEdit} disabled={saving}>Cancel</button>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        <tr key={log.id}>
-                                            <td>{log.date}</td>
-                                            <td>{formatTimeNoSeconds(log.startTime)} - {formatTimeNoSeconds(log.endTime)}</td>
-                                            <td>{calculateDuration(log.startTime, log.endTime)}</td>
-                                            <td>{log.client || '-'}</td>
-                                            <td>{log.description}</td>
-                                            <td>
-                                                <span onClick={() => startEdit(log)} title="Edit" style={{ cursor: 'pointer', marginRight: '0.5rem', fontSize: '1.1rem' }}>✏️</span>
-                                                <span onClick={() => handleDelete(log.id)} title="Delete" style={{ cursor: 'pointer', fontSize: '1.1rem' }}>🗑️</span>
-                                            </td>
-                                        </tr>
-                                    )
-                                ))}
-                            </tbody>
-                        </table>
+                        <div className="table-container">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>When</th>
+                                        <th>Dur</th>
+                                        <th>Client</th>
+                                        <th>Description</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredTaskLogs.map((log) => (
+                                        editingId === log.id ? (
+                                            <tr key={log.id}>
+                                                <td>
+                                                    <input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} max={new Date().toISOString().split('T')[0]} style={{ width: '100%', minWidth: '110px' }} />
+                                                    <div style={{ marginTop: '4px' }}>
+                                                        <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} style={{ width: '70px' }} />
+                                                        {'-'}
+                                                        <input type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} style={{ width: '70px' }} />
+                                                    </div>
+                                                </td>
+                                                <td>{calculateDuration(editStartTime, editEndTime)}</td>
+                                                <td><input type="text" value={editClient} onChange={(e) => setEditClient(e.target.value)} placeholder="Client" style={{ width: '100%', minWidth: '60px' }} /></td>
+                                                <td><input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Description" style={{ width: '100%', minWidth: '80px' }} /></td>
+                                                <td>
+                                                    <button className="btn-small" onClick={handleSaveEdit} disabled={saving}>{saving ? '...' : 'Save'}</button>
+                                                    <button className="btn-small" onClick={cancelEdit} disabled={saving}>X</button>
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            <tr key={log.id}>
+                                                <td style={{ whiteSpace: 'nowrap' }}>
+                                                    <div style={{ fontSize: '0.75rem' }}>{log.date}</div>
+                                                    <div style={{ fontSize: '0.7rem', color: '#666' }}>{formatTimeNoSeconds(log.startTime)}-{formatTimeNoSeconds(log.endTime)}</div>
+                                                </td>
+                                                <td>{calculateDuration(log.startTime, log.endTime)}</td>
+                                                <td>{log.client || '-'}</td>
+                                                <td>
+                                                    {log.description.length > 20 ? (
+                                                        <span
+                                                            onClick={() => setModalDescription(log.description)}
+                                                            style={{ cursor: 'pointer', textDecoration: 'underline dotted' }}
+                                                            title="Click to see full description"
+                                                        >
+                                                            {log.description.substring(0, 20)}...
+                                                        </span>
+                                                    ) : log.description}
+                                                </td>
+                                                <td style={{ whiteSpace: 'nowrap' }}>
+                                                    <span onClick={() => startEdit(log)} title="Edit" style={{ cursor: 'pointer', marginRight: '0.25rem', fontSize: '0.9rem' }}>✏️</span>
+                                                    <span onClick={() => handleDelete(log.id)} title="Delete" style={{ cursor: 'pointer', fontSize: '0.9rem' }}>🗑️</span>
+                                                </td>
+                                            </tr>
+                                        )
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     )}
-                </div>
             </div>
+            {modalDescription && (
+                <div
+                    onClick={() => setModalDescription(null)}
+                    style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.5)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 1000
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            background: 'white',
+                            padding: '1rem',
+                            borderRadius: '8px',
+                            maxWidth: '90%',
+                            maxHeight: '80%',
+                            overflow: 'auto',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                        }}
+                    >
+                        <h3 style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Description</h3>
+                        <p style={{ fontSize: '0.85rem', lineHeight: '1.4' }}>{modalDescription}</p>
+                        <button
+                            onClick={() => setModalDescription(null)}
+                            style={{ marginTop: '1rem' }}
+                        >
+                            Close
+                        </button>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 }
@@ -1393,7 +1569,7 @@ function ExportPage() {
                     headers: { 'Authorization': `Bearer ${user.token}` }
                 });
                 const data = await res.json();
-                if (data.success) {
+                if (data.taskLogs) {
                     setTaskLogs(data.taskLogs);
                 }
             } catch (err) {
@@ -1481,6 +1657,40 @@ function ExportPage() {
         setMessage({ type: 'success', text: `Exported ${logsToExport.length} records to ${filename}` });
     };
 
+    const exportAllAsZip = async () => {
+        if (taskLogs.length === 0) {
+            setMessage({ type: 'error', text: 'No data to export' });
+            return;
+        }
+
+        const headers = ['Date', 'Start Time', 'End Time', 'Duration', 'Client', 'Description'];
+        const rows = taskLogs.map(log => {
+            const duration = calculateDuration(log.startTime, log.endTime);
+            return [log.date, formatTimeNoSeconds(log.startTime), formatTimeNoSeconds(log.endTime), duration, log.client || '', `"${(log.description || '').replace(/"/g, '""')}"`];
+        });
+        const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+        const zipFilename = `ALL-${dateStr}.zip`;
+        const csvFilename = `ALL-${dateStr}.csv`;
+
+        const zip = new JSZip();
+        zip.file(csvFilename, csvContent);
+
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', zipFilename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setMessage({ type: 'success', text: `Exported ${taskLogs.length} records to ${zipFilename}` });
+    };
+
     if (!profile) {
         return (
             <Layout title="Export" showNav onLogout={logout}>
@@ -1492,50 +1702,48 @@ function ExportPage() {
     return (
         <Layout showNav onLogout={logout} isAdmin={isSystemAdmin} userName={profile.firstName}>
             <div className="dashboard">
-                <div className="card">
-                    <h2>Export Task Logs</h2>
-                    <Message message={message} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div className="form-group">
-                            <label>Month</label>
-                            <select
-                                value={exportMonth}
-                                onChange={(e) => setExportMonth(e.target.value)}
-                                style={{ padding: '0.5rem', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ced4da' }}
-                            >
-                                {availableMonths.map((m) => (
-                                    <option key={m.value} value={m.value}>{m.label}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Client</label>
-                            <select
-                                value={clientFilter}
-                                onChange={(e) => setClientFilter(e.target.value)}
-                                style={{ padding: '0.5rem', fontSize: '1rem', borderRadius: '4px', border: '1px solid #ced4da' }}
-                            >
-                                <option value="all">All Clients</option>
-                                <option value="none">No Client</option>
-                                {clients.map((c, idx) => (
-                                    <option key={idx} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={consolidate}
-                                    onChange={(e) => setConsolidate(e.target.checked)}
-                                />
-                                Consolidate (group by date)
-                            </label>
-                        </div>
-                        <button onClick={exportToCsv} style={{ background: '#28a745' }}>
-                            Export CSV
-                        </button>
+                <h2 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>Export</h2>
+                <Message message={message} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div className="form-group">
+                        <label>Month</label>
+                        <select
+                            value={exportMonth}
+                            onChange={(e) => setExportMonth(e.target.value)}
+                        >
+                            {availableMonths.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
                     </div>
+                    <div className="form-group">
+                        <label>Client</label>
+                        <select
+                            value={clientFilter}
+                            onChange={(e) => setClientFilter(e.target.value)}
+                        >
+                            <option value="all">All Clients</option>
+                            <option value="none">No Client</option>
+                            {clients.map((c, idx) => (
+                                <option key={idx} value={c}>{c}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', justifyContent: 'flex-start', whiteSpace: 'nowrap' }}>
+                        <input
+                            type="checkbox"
+                            checked={consolidate}
+                            onChange={(e) => setConsolidate(e.target.checked)}
+                            style={{ width: 'auto' }}
+                        />
+                        Consolidate (group by date)
+                    </label>
+                    <button onClick={exportToCsv} style={{ background: '#28a745' }}>
+                        Export CSV
+                    </button>
+                    <button onClick={exportAllAsZip} style={{ background: '#17a2b8' }}>
+                        Export all as ZIP
+                    </button>
                 </div>
             </div>
         </Layout>
