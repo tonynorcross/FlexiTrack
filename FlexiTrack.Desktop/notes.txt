@@ -1,0 +1,29 @@
+FlexiTrack Desktop - Installation Instructions
+=============================================
+
+Option 1: Run the installer script (recommended)
+------------------------------------------------
+Open PowerShell as Administrator and run:
+
+    cd C:\Work\Code\df\learn\FlexiTrack\FlexiTrack.Desktop
+    .\install-msix.ps1
+
+
+Option 2: Manual installation
+-----------------------------
+1. Double-click AppPackages\FlexiTrack.Desktop_1.1.0.0.msix
+
+2. If prompted about the certificate, install AppPackages\FlexiTrack.pfx first:
+   - Password: FlexiTrack123!
+   - Install to the "Trusted People" store
+
+
+After Installation
+------------------
+Find "FlexiTrack Desktop" in your Start Menu.
+
+
+Building a New Package
+----------------------
+    cd C:\Work\Code\df\learn\FlexiTrack\FlexiTrack.Desktop
+    .\build-msix.ps1 -Version "1.2.0.0"
