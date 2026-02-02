@@ -10,7 +10,15 @@
 $ErrorActionPreference = "Stop"
 $AppPackagesDir = "$PSScriptRoot\AppPackages"
 $CerPath = "$AppPackagesDir\FlexiTrack.cer"
-$MsixPath = "$AppPackagesDir\FlexiTrack.Desktop_1.0.0.0.msix"
+
+# Find the latest MSIX package
+$MsixFiles = Get-ChildItem "$AppPackagesDir\FlexiTrack.Desktop_*.msix" -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+if ($MsixFiles.Count -eq 0) {
+    Write-Error "No MSIX package found in $AppPackagesDir. Run build-msix.ps1 first."
+    exit 1
+}
+$MsixPath = $MsixFiles[0].FullName
+Write-Host "Found package: $($MsixFiles[0].Name)" -ForegroundColor Cyan
 
 Write-Host "FlexiTrack Desktop Installer" -ForegroundColor Cyan
 Write-Host "============================`n" -ForegroundColor Cyan
@@ -22,14 +30,8 @@ if (-not $isAdmin) {
     exit 1
 }
 
-# Check if files exist
-if (-not (Test-Path $MsixPath)) {
-    Write-Error "MSIX package not found at $MsixPath. Run build-msix.ps1 first."
-    exit 1
-}
-
+# Export certificate if not already exported
 if (-not (Test-Path $CerPath)) {
-    # Export certificate if not already exported
     $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -eq 'CN=FlexiTrack' } | Select-Object -First 1
     if ($cert) {
         Export-Certificate -Cert $cert -FilePath $CerPath -Force | Out-Null

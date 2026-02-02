@@ -87,6 +87,7 @@ The WPF desktop app runs in the Windows system tray and connects to the API.
 - Edit and delete task logs
 - Auto-restore session from saved token
 - Shows Log screen automatically after login
+- Settings dialog to configure API URL (useful for pointing to different servers)
 
 ### Running the Desktop App
 
@@ -134,6 +135,17 @@ Add-AppxPackage -Path AppPackages\FlexiTrack.Desktop_1.0.0.0.msix
 **For production release:**
 1. Replace placeholder icons in `Assets/` with branded PNGs
 2. Sign with a trusted code signing certificate
+
+### User Settings (Desktop)
+The desktop app stores user-configurable settings in `%LocalAppData%\FlexiTrack\settings.json`. Users can change the API URL after deployment:
+
+1. Right-click the system tray icon
+2. Select "Settings"
+3. Enter the new API Base URL
+4. Click "Test" to verify the connection
+5. Click "Save"
+
+The app will use the new URL on the next popup open.
 
 ### Error Logging
 Logs are written to: `%LocalAppData%\FlexiTrack\error.log`

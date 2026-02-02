@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using FlexiTrack.Desktop.Services;
 using FlexiTrack.Desktop.ViewModels;
+using FlexiTrack.Desktop.Views;
 using Hardcodet.Wpf.TaskbarNotification;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,7 +64,9 @@ public partial class App : Application
             .Build();
 
         services.AddSingleton<IConfiguration>(configuration);
+        services.AddSingleton<SettingsService>();
         services.AddSingleton<MainViewModel>();
+        services.AddTransient<SettingsViewModel>();
 
         return services.BuildServiceProvider();
     }
@@ -95,6 +98,10 @@ public partial class App : Application
 
         menu.Items.Add(new Separator());
 
+        var settingsItem = new MenuItem { Header = "Settings" };
+        settingsItem.Click += (s, e) => ShowSettingsWindow();
+        menu.Items.Add(settingsItem);
+
         var logoutItem = new MenuItem { Header = "Logout" };
         logoutItem.SetBinding(MenuItem.CommandProperty, new System.Windows.Data.Binding(nameof(MainViewModel.LogoutCommand)) { Source = viewModel });
         menu.Items.Add(logoutItem);
@@ -106,6 +113,13 @@ public partial class App : Application
         menu.Items.Add(exitItem);
 
         return menu;
+    }
+
+    private void ShowSettingsWindow()
+    {
+        var settingsViewModel = Services.GetRequiredService<SettingsViewModel>();
+        var settingsWindow = new SettingsWindow(settingsViewModel);
+        settingsWindow.ShowDialog();
     }
 
     protected override void OnExit(ExitEventArgs e)

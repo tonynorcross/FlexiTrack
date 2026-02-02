@@ -1,22 +1,36 @@
 using System.Windows;
 using CommunityToolkit.Mvvm.Input;
+using FlexiTrack.Desktop.Services;
 using FlexiTrack.Desktop.Views;
 using Hardcodet.Wpf.TaskbarNotification;
-using Microsoft.Extensions.Configuration;
 using static FlexiTrack.Desktop.Services.LogService;
 
 namespace FlexiTrack.Desktop.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    private readonly string _apiUrl;
+    private readonly SettingsService _settingsService;
     private WebViewPopupWindow? _popupWindow;
 
     public TaskbarIcon? TrayIcon { get; set; }
 
-    public MainViewModel(IConfiguration configuration)
+    public MainViewModel(SettingsService settingsService)
     {
-        _apiUrl = configuration["Api:BaseUrl"] ?? "http://localhost:5265";
+        _settingsService = settingsService;
+        _settingsService.SettingsChanged += OnSettingsChanged;
+    }
+
+    private string ApiUrl => _settingsService.ApiBaseUrl;
+
+    private void OnSettingsChanged()
+    {
+        Log($"Settings changed, new API URL: {ApiUrl}");
+
+        if (_popupWindow != null)
+        {
+            _popupWindow.Close();
+            _popupWindow = null;
+        }
     }
 
     [RelayCommand]
@@ -33,7 +47,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             Log("Creating WebViewPopupWindow...");
-            _popupWindow = new WebViewPopupWindow(_apiUrl);
+            _popupWindow = new WebViewPopupWindow(ApiUrl);
             _popupWindow.Show();
             Log("WebViewPopupWindow shown");
             PositionPopupNearTray();
@@ -54,7 +68,7 @@ public partial class MainViewModel : ViewModelBase
                 return;
             }
 
-            _popupWindow = new WebViewPopupWindow(_apiUrl);
+            _popupWindow = new WebViewPopupWindow(ApiUrl);
             _popupWindow.Show();
             PositionPopupNearTray();
         }
